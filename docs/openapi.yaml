@@ -1,0 +1,653 @@
+openapi: 3.0.3
+info:
+  title: Nalakarsa Collaboration Ecosystem API
+  description: Dokumen spesifikasi API untuk Nalakarsa Backend. Menghubungkan Akademisi, Praktisi, dan Profesional.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /api/v1/auth/register:
+    post:
+      summary: Registrasi Akun Baru
+      description: Mendaftarkan akun baru dan detail profil secara bersamaan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - role
+                - nama_lengkap
+                - afiliasi
+                - lokasi
+                - bidang_keahlian
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: dosen@nalakarsa.id
+                password:
+                  type: string
+                  minLength: 6
+                  example: password123
+                role:
+                  type: string
+                  enum: [akademisi, praktisi, profesional]
+                  example: akademisi
+                nama_lengkap:
+                  type: string
+                  example: Dr. Ir. Budi Santoso
+                gelar_depan:
+                  type: string
+                  example: Dr.
+                gelar_belakang:
+                  type: string
+                  example: M.T.
+                afiliasi:
+                  type: string
+                  example: Universitas Indonesia
+                lokasi:
+                  type: string
+                  example: Depok, Indonesia
+                bidang_keahlian:
+                  type: string
+                  example: Internet of Things & AI
+                bio_misi:
+                  type: string
+                  example: Menghubungkan riset akademik ke industri nyata.
+                avatar_url:
+                  type: string
+                  example: ""
+      responses:
+        '201':
+          description: Registrasi Berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseRegister'
+        '400':
+          description: Input tidak valid atau email sudah terdaftar
+
+  /api/v1/auth/login:
+    post:
+      summary: Login Pengguna
+      description: Autentikasi menggunakan email dan password untuk mendapatkan JWT tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: dosen@nalakarsa.id
+                password:
+                  type: string
+                  example: password123
+      responses:
+        '200':
+          description: Login Berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseLogin'
+        '401':
+          description: Kredensial salah
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh Access Token
+      description: Memperbarui access token yang kadaluwarsa menggunakan refresh token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: eyJhbGciOi...
+      responses:
+        '200':
+          description: Token baru berhasil di-generate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseRefresh'
+        '401':
+          description: Refresh token tidak valid atau kadaluwarsa
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout Pengguna
+      description: Mencabut refresh token agar tidak bisa digunakan kembali.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: eyJhbGciOi...
+      responses:
+        '200':
+          description: Logout berhasil
+
+  /api/v1/users/me:
+    get:
+      summary: Get Profile Sendiri
+      description: Mengambil data profil lengkap milik pengguna yang sedang login.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil berhasil dimuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseProfile'
+    put:
+      summary: Update Profile Sendiri
+      description: Memperbarui data profil pengguna aktif.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nama_lengkap
+                - afiliasi
+                - lokasi
+                - bidang_keahlian
+              properties:
+                nama_lengkap:
+                  type: string
+                  example: Dr. Ir. Budi Santoso, M.T.
+                gelar_depan:
+                  type: string
+                  example: Dr.
+                gelar_belakang:
+                  type: string
+                  example: M.T.
+                afiliasi:
+                  type: string
+                  example: Universitas Indonesia
+                lokasi:
+                  type: string
+                  example: Jakarta, Indonesia
+                bidang_keahlian:
+                  type: string
+                  example: IoT & Kecerdasan Buatan
+                bio_misi:
+                  type: string
+                  example: Menghubungkan riset akademik ke industri nyata secara agresif.
+                avatar_url:
+                  type: string
+                  example: ""
+      responses:
+        '200':
+          description: Profil berhasil diperbarui
+
+  /api/v1/users:
+    get:
+      summary: Cari Direktori Pengguna
+      description: Mendapatkan daftar profil seluruh pengguna terdaftar dengan filter pencarian dan peran.
+      parameters:
+        - name: search
+          in: query
+          description: Kata kunci pencarian (nama, afiliasi, keahlian)
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          description: Filter peran (akademisi, praktisi, profesional)
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Halaman data (default 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Jumlah data per halaman (default 10)
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Daftar profil berhasil diambil
+
+  /api/v1/discussions:
+    get:
+      summary: Daftar Diskusi
+      description: Mengambil seluruh topik diskusi publik dengan pagination, pencarian teks, dan filter.
+      parameters:
+        - name: search
+          in: query
+          description: Cari judul atau konten diskusi
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Filter berdasarkan kategori (contoh Tech, Research)
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          description: Filter berdasarkan peran pembuat diskusi
+          required: false
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Urutan data (newest, oldest)
+          required: false
+          schema:
+            type: string
+            default: newest
+      responses:
+        '200':
+          description: Daftar topik diskusi berhasil dimuat
+    post:
+      summary: Buat Topik Diskusi
+      description: Membuat topik diskusi baru di forum.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+                - category
+              properties:
+                title:
+                  type: string
+                  example: Tips Optimasi Query GORM PostgreSQL
+                content:
+                  type: string
+                  example: Rekan-rekan, pastikan menggunakan preload secara bijak agar terhindar dari N+1 query...
+                category:
+                  type: string
+                  example: Tech
+                tags:
+                  type: string
+                  example: gorm,postgres,go
+      responses:
+        '201':
+          description: Topik diskusi berhasil dibuat
+
+  /api/v1/discussions/{id}:
+    get:
+      summary: Detail Diskusi
+      description: Mengambil detail topik diskusi beserta seluruh komentar di dalamnya.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detail diskusi berhasil dimuat
+    put:
+      summary: Update Topik Diskusi
+      description: Memperbarui topik diskusi pribadi (Hanya untuk pemilik topik).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+                - category
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                category:
+                  type: string
+                tags:
+                  type: string
+      responses:
+        '200':
+          description: Diskusi diperbarui
+        '403':
+          description: Bukan pemilik topik
+    delete:
+      summary: Hapus Topik Diskusi
+      description: Menghapus topik diskusi pribadi (Hanya untuk pemilik topik).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Diskusi berhasil dihapus
+
+  /api/v1/discussions/{id}/comments:
+    post:
+      summary: Tambah Komentar Diskusi
+      description: Memberikan tanggapan/komentar di suatu topik diskusi.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  example: Penjelasan yang sangat bermanfaat, terima kasih!
+      responses:
+        '201':
+          description: Komentar ditambahkan
+
+  /api/v1/collaborations:
+    get:
+      summary: Daftar Proyek Kolaborasi
+      description: Menampilkan seluruh lowongan tawaran proyek kolaborasi multi-peran.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: role_required
+          in: query
+          description: Mencari peran tertentu (akademisi, praktisi, profesional)
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Status proyek (open, in_progress, closed)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Daftar kolaborasi berhasil dimuat
+    post:
+      summary: Ajukan Proyek Kolaborasi
+      description: Membuat postingan tawaran kolaborasi proyek baru.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - role_required
+              properties:
+                title:
+                  type: string
+                  example: Hilirisasi Alat IoT Pengukur Kadar Nitrogen Tanah
+                description:
+                  type: string
+                  example: Kami telah membuat prototipe perangkat dan membutuhkan praktisi untuk uji pasar dan pabrikasi.
+                role_required:
+                  type: string
+                  enum: [akademisi, praktisi, profesional]
+                  example: praktisi
+      responses:
+        '201':
+          description: Proposal berhasil diajukan
+
+  /api/v1/collaborations/{id}/apply:
+    post:
+      summary: Lamar Kolaborasi
+      description: Mengirim pesan ketertarikan untuk bergabung dalam proyek (Peran pelamar harus cocok dengan role_required).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  example: Halo, kami dari perusahaan perkebunan berminat untuk menyediakan lahan dan pendanaan uji coba.
+      responses:
+        '201':
+          description: Lamaran berhasil dikirim
+        '400':
+          description: Validasi gagal (misal peran tidak cocok atau sudah melamar sebelumnya)
+
+  /api/v1/collaborations/{id}/applications:
+    get:
+      summary: Lihat Pelamar Kolaborasi
+      description: Melihat daftar pengguna yang melamar proyek kolaborasi (Hanya pemilik proyek).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Daftar pelamar berhasil dimuat
+        '403':
+          description: Bukan pemilik proyek kolaborasi
+
+  /api/v1/collaborations/{id}/applications/{app_id}:
+    put:
+      summary: Kelola Status Lamaran
+      description: Menerima atau menolak lamaran kolaborasi (Hanya pemilik proyek).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: app_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+                  example: accepted
+      responses:
+        '200':
+          description: Status lamaran berhasil diperbarui
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    APIResponseRegister:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Registrasi berhasil
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            role:
+              type: string
+    APIResponseLogin:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Login berhasil
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            expires_in:
+              type: integer
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                email:
+                  type: string
+                role:
+                  type: string
+    APIResponseRefresh:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            expires_in:
+              type: integer
+    APIResponseProfile:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            role:
+              type: string
+            profile:
+              type: object
+              properties:
+                nama_lengkap:
+                  type: string
+                gelar_depan:
+                  type: string
+                gelar_belakang:
+                  type: string
+                afiliasi:
+                  type: string
+                lokasi:
+                  type: string
+                bidang_keahlian:
+                  type: string
+                bio_misi:
+                  type: string
+                avatar_url:
+                  type: string

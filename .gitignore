@@ -1,0 +1,78 @@
+# Binaries and Executables
+# ------------------------
+bin/
+dist/
+out/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+nalakarsa_app
+nalakarsa_test_build
+
+# Environment Configurations (Crucial for Security)
+# -------------------------------------------------
+.env
+.env.local
+.env.*.local
+
+# IDE and Editor Files
+# --------------------
+# JetBrains (GoLand, IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Operating System Files
+# ----------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.Trashes
+VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.sys
+*.tmp
+
+# Air (Hot Reload tool)
+# ---------------------
+# Air creates a temporary build folder, usually named 'tmp' or 'bin'
+tmp/
+
+# Logs and Databases
+# ------------------
+*.log
+logs/
+pgdata/
+postgres-data/
+
+# Testing and Coverage
+# --------------------
+*.test
+*.out
+*.cov
+coverage.html
