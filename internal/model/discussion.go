@@ -14,11 +14,13 @@ type Discussion struct {
 	Content   string         `gorm:"type:text;not null"`
 	Category  string         `gorm:"type:varchar(100);index;not null"`
 	Tags      string         `gorm:"type:varchar(255);default:'';not null"`
+	Status    string         `gorm:"type:varchar(20);index;default:'open';not null"` // open, resolved, closed
 	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// Relations
-	User     User      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	Comments []Comment `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`
+	User    User              `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	Replies []DiscussionReply `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`
+	Votes   []DiscussionVote  `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`
 }

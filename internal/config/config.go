@@ -25,6 +25,8 @@ type Config struct {
 	JWTRefreshSecret           string
 	JWTAccessExpiration        int
 	JWTRefreshExpiration       int
+	CORSAllowedOrigins         string
+	FrontendURL                string
 }
 
 func LoadConfig() *Config {
@@ -47,15 +49,17 @@ func LoadConfig() *Config {
 		FirebaseStorageBucket:      getEnv("FIREBASE_STORAGE_BUCKET", ""),
 		JWTAccessExpiration:        getEnvAsInt("JWT_ACCESS_EXPIRATION", 900),
 		JWTRefreshExpiration:       getEnvAsInt("JWT_REFRESH_EXPIRATION", 604800),
+		CORSAllowedOrigins:         getEnv("CORS_ALLOWED_ORIGINS", "*"),
+		FrontendURL:                getEnv("FRONTEND_URL", "http://localhost:5173"),
 
-		// variabel rahasia (wajib diisi dari.env)
+		// variabel rahasia (wajib diisi dari .env)
 		DBPassword:       getEnvRequired("DB_PASSWORD"),
 		JWTSecret:        getEnvRequired("JWT_SECRET"),
 		JWTRefreshSecret: getEnvRequired("JWT_REFRESH_SECRET"),
 	}
 }
 
-// fungsi unntuk variabel opsional
+// fungsi untuk variabel opsional
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
@@ -72,7 +76,7 @@ func getEnvRequired(key string) string {
 	return value
 }
 
-// FUngsi untuk Konversi Integer
+// Fungsi untuk Konversi Integer
 func getEnvAsInt(key string, defaultValue int) int {
 	valueStr := getEnv(key, "")
 	if value, err := strconv.Atoi(valueStr); err == nil {

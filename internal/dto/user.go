@@ -13,8 +13,11 @@ type ProfileResponse struct {
 	Afiliasi       string `json:"afiliasi"`
 	Lokasi         string `json:"lokasi"`
 	BidangKeahlian string `json:"bidang_keahlian"`
-	BioMisi        string `json:"bio_misi"`
+	Industry       string `json:"industry"`
+	Bio            string `json:"bio"`
+	Mission        string `json:"mission"`
 	AvatarURL      string `json:"avatar_url"`
+	ViewCount      int    `json:"view_count"`
 }
 
 type UserProfileResponse struct {
@@ -25,6 +28,18 @@ type UserProfileResponse struct {
 	Profile   ProfileResponse `json:"profile"`
 }
 
+// UserProfileStatsResponse adds aggregate stats for profile view
+type UserProfileStatsResponse struct {
+	UserProfileResponse
+	Stats ProfileStats `json:"stats"`
+}
+
+type ProfileStats struct {
+	ConnectionCount int64 `json:"connection_count"`
+	ProjectCount    int64 `json:"project_count"`
+	DiscussionCount int64 `json:"discussion_count"`
+}
+
 type UpdateProfileRequest struct {
 	NamaLengkap    string `json:"nama_lengkap" binding:"required"`
 	GelarDepan     string `json:"gelar_depan"`
@@ -32,7 +47,9 @@ type UpdateProfileRequest struct {
 	Afiliasi       string `json:"afiliasi" binding:"required"`
 	Lokasi         string `json:"lokasi" binding:"required"`
 	BidangKeahlian string `json:"bidang_keahlian" binding:"required"`
-	BioMisi        string `json:"bio_misi"`
+	Industry       string `json:"industry"`
+	Bio            string `json:"bio"`
+	Mission        string `json:"mission"`
 	AvatarURL      string `json:"avatar_url"`
 }
 
@@ -43,10 +60,20 @@ type PaginationResponse struct {
 	Limit       int   `json:"limit"`
 }
 
+// APIResponse is the standard response envelope
 type APIResponse struct {
-	Success    bool                `json:"success"`
-	Message    string              `json:"message"`
 	Data       interface{}         `json:"data,omitempty"`
-	Errors     []string            `json:"errors,omitempty"`
-	Pagination *PaginationResponse `json:"pagination,omitempty"`
+	Meta       *PaginationResponse `json:"meta,omitempty"`
+	Message    string              `json:"message"`
+}
+
+// APIErrorResponse is the standard error envelope
+type APIErrorResponse struct {
+	Error APIErrorDetail `json:"error"`
+}
+
+type APIErrorDetail struct {
+	Code    string            `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields,omitempty"`
 }

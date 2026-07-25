@@ -14,9 +14,9 @@ func SeedData(db *gorm.DB) error {
 
 	// 1. Clear existing data
 	log.Println("Purging existing data...")
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Application{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Collaboration{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Comment{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ProjectApplication{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Project{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.DiscussionReply{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Discussion{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.RefreshToken{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Profile{})
@@ -32,6 +32,8 @@ func SeedData(db *gorm.DB) error {
 		Email:        "dosen@nalakarsa.id",
 		PasswordHash: hashedPassword,
 		Role:         "akademisi",
+		SystemRole:   "user",
+		Status:       "active",
 		Profile: model.Profile{
 			NamaLengkap:    "Dr. Ir. Budi Santoso",
 			GelarDepan:     "Dr.",
@@ -39,7 +41,8 @@ func SeedData(db *gorm.DB) error {
 			Afiliasi:       "Universitas Indonesia",
 			Lokasi:         "Depok, Indonesia",
 			BidangKeahlian: "Internet of Things & AI",
-			BioMisi:        "Melakukan penelitian terapan dan mencari mitra industrialisasi.",
+			Bio:            "Peneliti bidang IoT.",
+			Mission:        "Melakukan penelitian terapan dan mencari mitra industrialisasi.",
 			AvatarURL:      "https://api.dicebear.com/7.x/adventurer/svg?seed=budi",
 		},
 	}
@@ -48,6 +51,8 @@ func SeedData(db *gorm.DB) error {
 		Email:        "pengusaha@nalakarsa.id",
 		PasswordHash: hashedPassword,
 		Role:         "praktisi",
+		SystemRole:   "user",
+		Status:       "active",
 		Profile: model.Profile{
 			NamaLengkap:    "Hendra Wijaya",
 			GelarDepan:     "",
@@ -55,7 +60,8 @@ func SeedData(db *gorm.DB) error {
 			Afiliasi:       "PT Tani Maju Digital",
 			Lokasi:         "Jakarta, Indonesia",
 			BidangKeahlian: "Agribisnis & Investasi",
-			BioMisi:        "Mendukung otomatisasi pertanian menggunakan teknologi hasil riset.",
+			Bio:            "Pengusaha pertanian digital.",
+			Mission:        "Mendukung otomatisasi pertanian menggunakan teknologi hasil riset.",
 			AvatarURL:      "https://api.dicebear.com/7.x/adventurer/svg?seed=hendra",
 		},
 	}
@@ -64,6 +70,8 @@ func SeedData(db *gorm.DB) error {
 		Email:        "engineer@nalakarsa.id",
 		PasswordHash: hashedPassword,
 		Role:         "profesional",
+		SystemRole:   "user",
+		Status:       "active",
 		Profile: model.Profile{
 			NamaLengkap:    "Setyo Nugroho",
 			GelarDepan:     "",
@@ -71,7 +79,8 @@ func SeedData(db *gorm.DB) error {
 			Afiliasi:       "Freelance Software Architect",
 			Lokasi:         "Bandung, Indonesia",
 			BidangKeahlian: "Go, Kubernetes, Cloud Architecture",
-			BioMisi:        "Menyediakan solusi backend handal skala besar.",
+			Bio:            "Software Engineer spesialis backend.",
+			Mission:        "Menyediakan solusi backend handal skala besar.",
 			AvatarURL:      "https://api.dicebear.com/7.x/adventurer/svg?seed=setyo",
 		},
 	}
@@ -93,6 +102,7 @@ func SeedData(db *gorm.DB) error {
 		Content:  "Dalam ekosistem Nalakarsa, saya ingin berdiskusi mengenai konkurensi di Go. Goroutines dan Channels membuat pemrosesan paralel menjadi sangat efisien dibandingkan thread konvensional. Bagaimana pengalaman rekan-rekan?",
 		Category: "Tech",
 		Tags:     "golang,microservices,backend",
+		Status:   "open",
 	}
 
 	disc2 := &model.Discussion{
@@ -101,6 +111,7 @@ func SeedData(db *gorm.DB) error {
 		Content:  "Banyak prototipe riset IoT terhenti di laci laboratorium. Kendala utama adalah kurangnya komunikasi dengan pelaku bisnis. Mari kita bahas bagaimana menjembatani gap ini.",
 		Category: "Research",
 		Tags:     "riset,industri,hilirisasi",
+		Status:   "open",
 	}
 
 	if err := db.Create(disc1).Error; err != nil {
@@ -110,45 +121,48 @@ func SeedData(db *gorm.DB) error {
 		return err
 	}
 
-	// 4. Create Discussion Comments
-	comment1 := &model.Comment{
+	// 4. Create Discussion Replies
+	reply1 := &model.DiscussionReply{
 		DiscussionID: disc1.ID,
 		UserID:       akademisiUser.ID,
 		Content:      "Setuju sekali! Kami di lab riset juga menggunakan Go untuk backend sensor gateway kami karena penggunaan memori yang sangat kecil.",
 	}
 
-	comment2 := &model.Comment{
+	reply2 := &model.DiscussionReply{
 		DiscussionID: disc2.ID,
 		UserID:       praktisiUser.ID,
 		Content:      "Kami dari sektor swasta siap menampung riset yang sudah matang di TRL 7 ke atas untuk dikomersialkan. Silakan hubungi kami.",
 	}
 
-	if err := db.Create(comment1).Error; err != nil {
+	if err := db.Create(reply1).Error; err != nil {
 		return err
 	}
-	if err := db.Create(comment2).Error; err != nil {
+	if err := db.Create(reply2).Error; err != nil {
 		return err
 	}
 
-	// 5. Create Collaboration Projects
-	collab := &model.Collaboration{
-		UserID:       akademisiUser.ID,
-		Title:        "Pengembangan Lapangan Sistem IoT Monitoring Tanah Pertanian",
-		Description:  "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
-		RoleRequired: "praktisi",
-		Status:       "open",
+	// 5. Create Projects (Replacing Collaboration)
+	project := &model.Project{
+		OwnerID:       akademisiUser.ID,
+		Title:         "Pengembangan Lapangan Sistem IoT Monitoring Tanah Pertanian",
+		Description:   "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
+		Category:      "Research",
+		RoleRequired:  "praktisi",
+		Status:        "open",
+		FundingStatus: "Self-funded",
+		Location:      "Bogor",
 	}
 
-	if err := db.Create(collab).Error; err != nil {
+	if err := db.Create(project).Error; err != nil {
 		return err
 	}
 
 	// 6. Create Application
-	app := &model.Application{
-		CollaborationID: collab.ID,
-		UserID:          praktisiUser.ID,
-		Message:         "Halo Pak Budi, saya Hendra dari PT Tani Maju Digital. Kami memiliki perkebunan teh seluas 3 hektar di daerah Bogor dan sangat tertarik untuk dijadikan lahan riset implementasi alat ini.",
-		Status:          "pending",
+	app := &model.ProjectApplication{
+		ProjectID:   project.ID,
+		ApplicantID: praktisiUser.ID,
+		Message:     "Halo Pak Budi, saya Hendra dari PT Tani Maju Digital. Kami memiliki perkebunan teh seluas 3 hektar di daerah Bogor dan sangat tertarik untuk dijadikan lahan riset implementasi alat ini.",
+		Status:      "pending",
 	}
 
 	if err := db.Create(app).Error; err != nil {

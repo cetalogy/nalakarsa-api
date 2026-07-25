@@ -15,9 +15,18 @@ type DiscussionRepository interface {
 	List(search, category, role, sort string, page, limit int) ([]model.Discussion, int64, error)
 	Update(disc *model.Discussion) error
 	Delete(id uuid.UUID) error
-	CreateComment(comment *model.Comment) error
-	GetCommentByID(id uuid.UUID) (*model.Comment, error)
-	DeleteComment(id uuid.UUID) error
+
+	// Replies (was Comments)
+	CreateReply(reply *model.DiscussionReply) error
+	GetReplyByID(id uuid.UUID) (*model.DiscussionReply, error)
+	DeleteReply(id uuid.UUID) error
+	CountReplies(discussionID uuid.UUID) (int64, error)
+
+	// Votes
+	CreateVote(vote *model.DiscussionVote) error
+	DeleteVote(userID, discussionID uuid.UUID) error
+	HasVoted(userID, discussionID uuid.UUID) (bool, error)
+	CountVotes(discussionID uuid.UUID) (int64, error)
 }
 
 type pgDiscussionRepository struct {
@@ -35,10 +44,10 @@ func (r *pgDiscussionRepository) Create(disc *model.Discussion) error {
 func (r *pgDiscussionRepository) GetByID(id uuid.UUID) (*model.Discussion, error) {
 	var disc model.Discussion
 	err := r.db.Preload("User.Profile").
-		Preload("Comments", func(db *gorm.DB) *gorm.DB {
-			return db.Order("comments.created_at asc")
+		Preload("Replies", func(db *gorm.DB) *gorm.DB {
+			return db.Order("discussion_replies.created_at asc")
 		}).
-		Preload("Comments.User.Profile").
+		Preload("Replies.User.Profile").
 		Where("id = ?", id).First(&disc).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -56,7 +65,7 @@ func (r *pgDiscussionRepository) List(search, category, role, sort string, page,
 	query := r.db.Model(&model.Discussion{}).Preload("User.Profile")
 
 	if category != "" {
-		query = query.Where("category = ?", category)
+		query = query.Where("discussions.category = ?", category)
 	}
 
 	if role != "" {
@@ -66,7 +75,7 @@ func (r *pgDiscussionRepository) List(search, category, role, sort string, page,
 
 	if search != "" {
 		searchTerm := "%" + search + "%"
-		query = query.Where("title ILIKE ? OR content ILIKE ?", searchTerm, searchTerm)
+		query = query.Where("discussions.title ILIKE ? OR discussions.content ILIKE ?", searchTerm, searchTerm)
 	}
 
 	// Count total records
@@ -75,9 +84,9 @@ func (r *pgDiscussionRepository) List(search, category, role, sort string, page,
 	}
 
 	// Apply Sorting
-	order := "created_at desc"
+	order := "discussions.created_at desc"
 	if sort == "oldest" {
-		order = "created_at asc"
+		order = "discussions.created_at asc"
 	}
 
 	// Fetch paginated results
@@ -98,22 +107,52 @@ func (r *pgDiscussionRepository) Delete(id uuid.UUID) error {
 	return r.db.Where("id = ?", id).Delete(&model.Discussion{}).Error
 }
 
-func (r *pgDiscussionRepository) CreateComment(comment *model.Comment) error {
-	return r.db.Create(comment).Error
+// --- Replies ---
+
+func (r *pgDiscussionRepository) CreateReply(reply *model.DiscussionReply) error {
+	return r.db.Create(reply).Error
 }
 
-func (r *pgDiscussionRepository) GetCommentByID(id uuid.UUID) (*model.Comment, error) {
-	var comment model.Comment
-	err := r.db.Where("id = ?", id).First(&comment).Error
+func (r *pgDiscussionRepository) GetReplyByID(id uuid.UUID) (*model.DiscussionReply, error) {
+	var reply model.DiscussionReply
+	err := r.db.Where("id = ?", id).First(&reply).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &comment, nil
+	return &reply, nil
 }
 
-func (r *pgDiscussionRepository) DeleteComment(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&model.Comment{}).Error
+func (r *pgDiscussionRepository) DeleteReply(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&model.DiscussionReply{}).Error
+}
+
+func (r *pgDiscussionRepository) CountReplies(discussionID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.DiscussionReply{}).Where("discussion_id = ?", discussionID).Count(&count).Error
+	return count, err
+}
+
+// --- Votes ---
+
+func (r *pgDiscussionRepository) CreateVote(vote *model.DiscussionVote) error {
+	return r.db.Create(vote).Error
+}
+
+func (r *pgDiscussionRepository) DeleteVote(userID, discussionID uuid.UUID) error {
+	return r.db.Where("user_id = ? AND discussion_id = ?", userID, discussionID).Delete(&model.DiscussionVote{}).Error
+}
+
+func (r *pgDiscussionRepository) HasVoted(userID, discussionID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.DiscussionVote{}).Where("user_id = ? AND discussion_id = ?", userID, discussionID).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *pgDiscussionRepository) CountVotes(discussionID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.DiscussionVote{}).Where("discussion_id = ?", discussionID).Count(&count).Error
+	return count, err
 }

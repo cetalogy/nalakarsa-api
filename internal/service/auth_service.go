@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"nalakarsa/internal/config"
@@ -28,6 +29,9 @@ func NewAuthService(userRepo repository.UserRepository, cfg *config.Config) Auth
 }
 
 func (s *authService) Register(req dto.RegisterRequest) (*dto.RegisterResponse, error) {
+	// Normalize email
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	// Check if user already exists
 	existing, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
@@ -48,6 +52,8 @@ func (s *authService) Register(req dto.RegisterRequest) (*dto.RegisterResponse, 
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
 		Role:         req.Role,
+		SystemRole:   "user",
+		Status:       "active",
 		Profile: model.Profile{
 			NamaLengkap:    req.NamaLengkap,
 			GelarDepan:     req.GelarDepan,
@@ -55,7 +61,9 @@ func (s *authService) Register(req dto.RegisterRequest) (*dto.RegisterResponse, 
 			Afiliasi:       req.Afiliasi,
 			Lokasi:         req.Lokasi,
 			BidangKeahlian: req.BidangKeahlian,
-			BioMisi:        req.BioMisi,
+			Industry:       req.Industry,
+			Bio:            req.Bio,
+			Mission:        req.Mission,
 			AvatarURL:      req.AvatarURL,
 		},
 	}
@@ -72,12 +80,19 @@ func (s *authService) Register(req dto.RegisterRequest) (*dto.RegisterResponse, 
 }
 
 func (s *authService) Login(req dto.LoginRequest) (*dto.LoginData, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	user, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
 		return nil, errors.New("invalid email or password")
+	}
+
+	// Check account status
+	if user.Status != "active" {
+		return nil, errors.New("account is suspended")
 	}
 
 	// Verify password

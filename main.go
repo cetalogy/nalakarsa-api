@@ -42,25 +42,42 @@ func main() {
 	}
 
 	// 4. Initialize Dependency Layers (Dependency Injection)
+
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	discRepo := repository.NewDiscussionRepository(db)
-	collabRepo := repository.NewCollaborationRepository(db)
+	connRepo := repository.NewConnectionRepository(db)
+	projRepo := repository.NewProjectRepository(db)
+	convRepo := repository.NewConversationRepository(db)
+	notifRepo := repository.NewNotificationRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, cfg)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, connRepo, projRepo)
 	discService := service.NewDiscussionService(discRepo, userRepo)
-	collabService := service.NewCollaborationService(collabRepo, userRepo)
+	connService := service.NewConnectionService(connRepo, userRepo)
+	projService := service.NewProjectService(projRepo, userRepo)
+	convService := service.NewConversationService(convRepo, userRepo)
+	notifService := service.NewNotificationService(notifRepo)
+	dashService := service.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService, cfg)
 	discHandler := handler.NewDiscussionHandler(discService)
-	collabHandler := handler.NewCollaborationHandler(collabService)
+	connHandler := handler.NewConnectionHandler(connService)
+	projHandler := handler.NewProjectHandler(projService)
+	convHandler := handler.NewConversationHandler(convService)
+	notifHandler := handler.NewNotificationHandler(notifService)
+	dashHandler := handler.NewDashboardHandler(dashService)
 
 	// 5. Setup Routes
-	r := routes.SetupRouter(cfg, authHandler, userHandler, discHandler, collabHandler)
+	r := routes.SetupRouter(
+		cfg,
+		authHandler, userHandler, discHandler,
+		projHandler, connHandler, convHandler,
+		notifHandler, dashHandler,
+	)
 
 	// Root Healthcheck endpoint
 	r.GET("/", func(c *gin.Context) {
