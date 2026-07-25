@@ -109,6 +109,20 @@ func (m *mockUserRepository) DeleteRefreshTokensByUserID(userID uuid.UUID) error
 	return nil
 }
 
+func (m *mockUserRepository) IncrementViewCount(userID uuid.UUID) error {
+	for _, u := range m.users {
+		if u.ID == userID {
+			u.Profile.ViewCount++
+			return nil
+		}
+	}
+	return errors.New("user not found")
+}
+
+func (m *mockUserRepository) CountDiscussions(userID uuid.UUID) (int64, error) {
+	return 0, nil
+}
+
 func TestRegisterAndLogin(t *testing.T) {
 	mockRepo := newMockUserRepository()
 	cfg := &config.Config{

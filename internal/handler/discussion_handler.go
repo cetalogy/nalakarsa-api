@@ -19,6 +19,16 @@ func NewDiscussionHandler(discService service.DiscussionService) *DiscussionHand
 	return &DiscussionHandler{discService: discService}
 }
 
+// getCurrentUserID tries to extract user_id from context (may be nil for public endpoints)
+func getCurrentUserID(c *gin.Context) *uuid.UUID {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		return nil
+	}
+	uid := userIDInterface.(uuid.UUID)
+	return &uid
+}
+
 func (h *DiscussionHandler) Create(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
@@ -29,7 +39,7 @@ func (h *DiscussionHandler) Create(c *gin.Context) {
 
 	var req dto.CreateDiscussionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "Validation failed", []string{err.Error()})
+		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
 		return
 	}
 
@@ -50,7 +60,9 @@ func (h *DiscussionHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	disc, err := h.discService.GetByID(id)
+	currentUserID := getCurrentUserID(c)
+
+	disc, err := h.discService.GetByID(id, currentUserID)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, err.Error())
 		return
@@ -60,13 +72,18 @@ func (h *DiscussionHandler) GetByID(c *gin.Context) {
 }
 
 func (h *DiscussionHandler) List(c *gin.Context) {
-	search := c.Query("search")
+	search := c.Query("q")
+	if search == "" {
+		search = c.Query("search")
+	}
 	category := c.Query("category")
 	role := c.Query("role")
 	sort := c.Query("sort")
 	page, limit := utils.ParsePaginationRequest(c)
 
-	discs, total, err := h.discService.List(search, category, role, sort, page, limit)
+	currentUserID := getCurrentUserID(c)
+
+	discs, total, err := h.discService.List(search, category, role, sort, page, limit, currentUserID)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
@@ -104,7 +121,7 @@ func (h *DiscussionHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateDiscussionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "Validation failed", []string{err.Error()})
+		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
 		return
 	}
 
@@ -151,7 +168,7 @@ func (h *DiscussionHandler) Delete(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusOK, "Discussion topic deleted successfully", nil, nil)
 }
 
-func (h *DiscussionHandler) AddComment(c *gin.Context) {
+func (h *DiscussionHandler) AddReply(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
@@ -166,13 +183,13 @@ func (h *DiscussionHandler) AddComment(c *gin.Context) {
 		return
 	}
 
-	var req dto.CreateCommentRequest
+	var req dto.CreateReplyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "Validation failed", []string{err.Error()})
+		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
 		return
 	}
 
-	comment, err := h.discService.AddComment(userID, discussionID, req)
+	reply, err := h.discService.AddReply(userID, discussionID, req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "discussion not found" {
@@ -182,10 +199,10 @@ func (h *DiscussionHandler) AddComment(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusCreated, "Comment added successfully", comment, nil)
+	utils.JSONResponse(c, http.StatusCreated, "Reply added successfully", reply, nil)
 }
 
-func (h *DiscussionHandler) DeleteComment(c *gin.Context) {
+func (h *DiscussionHandler) DeleteReply(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
@@ -193,23 +210,75 @@ func (h *DiscussionHandler) DeleteComment(c *gin.Context) {
 	}
 	userID := userIDInterface.(uuid.UUID)
 
-	commentIDStr := c.Param("comment_id")
-	commentID, err := uuid.Parse(commentIDStr)
+	replyIDStr := c.Param("reply_id")
+	replyID, err := uuid.Parse(replyIDStr)
 	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid comment ID format")
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid reply ID format")
 		return
 	}
 
-	if err := h.discService.DeleteComment(userID, commentID); err != nil {
+	if err := h.discService.DeleteReply(userID, replyID); err != nil {
 		statusCode := http.StatusInternalServerError
-		if err.Error() == "comment not found" {
+		if err.Error() == "reply not found" {
 			statusCode = http.StatusNotFound
-		} else if err.Error() == "unauthorized to delete this comment" {
+		} else if err.Error() == "unauthorized to delete this reply" {
 			statusCode = http.StatusForbidden
 		}
 		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Comment deleted successfully", nil, nil)
+	utils.JSONResponse(c, http.StatusOK, "Reply deleted successfully", nil, nil)
+}
+
+func (h *DiscussionHandler) Vote(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	idStr := c.Param("id")
+	discussionID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid discussion ID format")
+		return
+	}
+
+	if err := h.discService.Vote(userID, discussionID); err != nil {
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "discussion not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "already upvoted this discussion" {
+			statusCode = http.StatusConflict
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Upvoted successfully", nil, nil)
+}
+
+func (h *DiscussionHandler) Unvote(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	idStr := c.Param("id")
+	discussionID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid discussion ID format")
+		return
+	}
+
+	if err := h.discService.Unvote(userID, discussionID); err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Upvote removed successfully", nil, nil)
 }

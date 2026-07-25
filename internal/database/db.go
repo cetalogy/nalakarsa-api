@@ -57,13 +57,32 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	// Auto Migration
 	log.Println("Running database migrations...")
 	err = db.AutoMigrate(
+		// Core
 		&model.User{},
 		&model.Profile{},
 		&model.RefreshToken{},
+
+		// Discussions
 		&model.Discussion{},
-		&model.Comment{},
-		&model.Collaboration{},
-		&model.Application{},
+		&model.DiscussionReply{},
+		&model.DiscussionVote{},
+
+		// Connections
+		&model.Connection{},
+
+		// Projects
+		&model.Project{},
+		&model.ProjectMember{},
+		&model.ProjectApplication{},
+		&model.ProjectMilestone{},
+
+		// Chat
+		&model.Conversation{},
+		&model.ConversationMember{},
+		&model.Message{},
+
+		// Notifications
+		&model.Notification{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 var logger *slog.Logger
@@ -16,6 +17,11 @@ func init() {
 
 func LoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Generate request/correlation ID
+		requestID := uuid.New().String()
+		c.Set("request_id", requestID)
+		c.Writer.Header().Set("X-Request-ID", requestID)
+
 		start := time.Now()
 		path := c.Request.URL.Path
 		raw := c.Request.URL.RawQuery
@@ -31,22 +37,19 @@ func LoggerMiddleware() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
+		attrs := []slog.Attr{
+			slog.String("request_id", requestID),
+			slog.Int("status", statusCode),
+			slog.String("method", method),
+			slog.String("path", path),
+			slog.String("ip", clientIP),
+			slog.Duration("latency", latency),
+		}
+
 		if statusCode >= 400 {
-			logger.Error("HTTP request failed",
-				slog.Int("status", statusCode),
-				slog.String("method", method),
-				slog.String("path", path),
-				slog.String("ip", clientIP),
-				slog.Duration("latency", latency),
-			)
+			logger.LogAttrs(c.Request.Context(), slog.LevelError, "HTTP request failed", attrs...)
 		} else {
-			logger.Info("HTTP request success",
-				slog.Int("status", statusCode),
-				slog.String("method", method),
-				slog.String("path", path),
-				slog.String("ip", clientIP),
-				slog.Duration("latency", latency),
-			)
+			logger.LogAttrs(c.Request.Context(), slog.LevelInfo, "HTTP request success", attrs...)
 		}
 	}
 }

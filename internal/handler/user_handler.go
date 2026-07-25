@@ -51,7 +51,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "Validation failed", []string{err.Error()})
+		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
 		return
 	}
 
@@ -71,7 +71,7 @@ func (h *UserHandler) GetPublicProfile(c *gin.Context) {
 		return
 	}
 
-	profile, err := h.userService.GetProfile(userID)
+	profile, err := h.userService.GetPublicProfile(userID)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, err.Error())
 		return
@@ -81,7 +81,10 @@ func (h *UserHandler) GetPublicProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) ListUsers(c *gin.Context) {
-	search := c.Query("search")
+	search := c.Query("q")
+	if search == "" {
+		search = c.Query("search")
+	}
 	role := c.Query("role")
 	page, limit := utils.ParsePaginationRequest(c)
 

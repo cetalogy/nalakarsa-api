@@ -12,6 +12,7 @@ import (
 
 type UserService interface {
 	GetProfile(userID uuid.UUID) (*dto.UserProfileResponse, error)
+	GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsResponse, error)
 	UpdateProfile(userID uuid.UUID, req dto.UpdateProfileRequest) error
 	UpdateAvatar(userID uuid.UUID, avatarURL string) error
 	ListUsers(search, role string, page, limit int) ([]dto.UserProfileResponse, int64, error)
@@ -19,10 +20,20 @@ type UserService interface {
 
 type userService struct {
 	userRepo repository.UserRepository
+	connRepo repository.ConnectionRepository
+	projRepo repository.ProjectRepository
 }
 
-func NewUserService(userRepo repository.UserRepository) UserService {
-	return &userService{userRepo: userRepo}
+func NewUserService(
+	userRepo repository.UserRepository,
+	connRepo repository.ConnectionRepository,
+	projRepo repository.ProjectRepository,
+) UserService {
+	return &userService{
+		userRepo: userRepo,
+		connRepo: connRepo,
+		projRepo: projRepo,
+	}
 }
 
 func (s *userService) GetProfile(userID uuid.UUID) (*dto.UserProfileResponse, error) {
@@ -37,6 +48,34 @@ func (s *userService) GetProfile(userID uuid.UUID) (*dto.UserProfileResponse, er
 	return toUserProfileResponse(user), nil
 }
 
+func (s *userService) GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsResponse, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Increment view count
+	_ = s.userRepo.IncrementViewCount(userID)
+
+	// Get stats
+	connCount, _ := s.connRepo.CountAccepted(userID)
+	projCount, _ := s.projRepo.CountByOwner(userID, "")
+	discCount, _ := s.userRepo.CountDiscussions(userID)
+
+	profile := toUserProfileResponse(user)
+	return &dto.UserProfileStatsResponse{
+		UserProfileResponse: *profile,
+		Stats: dto.ProfileStats{
+			ConnectionCount: connCount,
+			ProjectCount:    projCount,
+			DiscussionCount: discCount,
+		},
+	}, nil
+}
+
 func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileRequest) error {
 	profile := &model.Profile{
 		UserID:         userID,
@@ -46,7 +85,9 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		Afiliasi:       req.Afiliasi,
 		Lokasi:         req.Lokasi,
 		BidangKeahlian: req.BidangKeahlian,
-		BioMisi:        req.BioMisi,
+		Industry:       req.Industry,
+		Bio:            req.Bio,
+		Mission:        req.Mission,
 		AvatarURL:      req.AvatarURL,
 	}
 
@@ -84,8 +125,11 @@ func toUserProfileResponse(u *model.User) *dto.UserProfileResponse {
 			Afiliasi:       u.Profile.Afiliasi,
 			Lokasi:         u.Profile.Lokasi,
 			BidangKeahlian: u.Profile.BidangKeahlian,
-			BioMisi:        u.Profile.BioMisi,
+			Industry:       u.Profile.Industry,
+			Bio:            u.Profile.Bio,
+			Mission:        u.Profile.Mission,
 			AvatarURL:      u.Profile.AvatarURL,
+			ViewCount:      u.Profile.ViewCount,
 		},
 	}
 }

@@ -18,6 +18,7 @@ type UpdateDiscussionRequest struct {
 	Content  string `json:"content" binding:"required,min=10"`
 	Category string `json:"category" binding:"required"`
 	Tags     string `json:"tags"`
+	Status   string `json:"status" binding:"omitempty,oneof=open resolved closed"`
 }
 
 type DiscussionCreator struct {
@@ -27,34 +28,44 @@ type DiscussionCreator struct {
 	AvatarURL   string    `json:"avatar_url"`
 }
 
-type DiscussionCommentResponse struct {
+type DiscussionReplyResponse struct {
 	ID        uuid.UUID         `json:"id"`
 	Content   string            `json:"content"`
+	ParentID  *uuid.UUID        `json:"parent_id,omitempty"`
 	CreatedAt time.Time         `json:"created_at"`
 	Creator   DiscussionCreator `json:"creator"`
 }
 
 type DiscussionResponse struct {
-	ID        uuid.UUID         `json:"id"`
-	Title     string            `json:"title"`
-	Content   string            `json:"content"`
-	Category  string            `json:"category"`
-	Tags      string            `json:"tags"`
-	CreatedAt time.Time         `json:"created_at"`
-	Creator   DiscussionCreator `json:"creator"`
+	ID          uuid.UUID         `json:"id"`
+	Title       string            `json:"title"`
+	Content     string            `json:"content"`
+	Category    string            `json:"category"`
+	Tags        string            `json:"tags"`
+	Status      string            `json:"status"`
+	ReplyCount  int64             `json:"reply_count"`
+	UpvoteCount int64             `json:"upvote_count"`
+	HasUpvoted  bool              `json:"has_upvoted"`
+	CreatedAt   time.Time         `json:"created_at"`
+	Creator     DiscussionCreator `json:"creator"`
 }
 
 type DiscussionDetailResponse struct {
-	ID        uuid.UUID                   `json:"id"`
-	Title     string                      `json:"title"`
-	Content   string                      `json:"content"`
-	Category  string                      `json:"category"`
-	Tags      string                      `json:"tags"`
-	CreatedAt time.Time                   `json:"created_at"`
-	Creator   DiscussionCreator           `json:"creator"`
-	Comments  []DiscussionCommentResponse `json:"comments"`
+	ID          uuid.UUID                 `json:"id"`
+	Title       string                    `json:"title"`
+	Content     string                    `json:"content"`
+	Category    string                    `json:"category"`
+	Tags        string                    `json:"tags"`
+	Status      string                    `json:"status"`
+	ReplyCount  int64                     `json:"reply_count"`
+	UpvoteCount int64                     `json:"upvote_count"`
+	HasUpvoted  bool                      `json:"has_upvoted"`
+	CreatedAt   time.Time                 `json:"created_at"`
+	Creator     DiscussionCreator         `json:"creator"`
+	Replies     []DiscussionReplyResponse `json:"replies"`
 }
 
-type CreateCommentRequest struct {
-	Content string `json:"content" binding:"required,min=3"`
+type CreateReplyRequest struct {
+	Content  string     `json:"content" binding:"required,min=3"`
+	ParentID *uuid.UUID `json:"parent_id"`
 }

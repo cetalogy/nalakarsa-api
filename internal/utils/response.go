@@ -8,31 +8,51 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// JSONResponse sends a successful JSON response
+// JSONResponse sends a successful JSON response using the standard envelope:
+// { "data": ..., "meta": ..., "message": "..." }
 func JSONResponse(c *gin.Context, statusCode int, message string, data interface{}, pagination *dto.PaginationResponse) {
 	c.JSON(statusCode, dto.APIResponse{
-		Success:    true,
-		Message:    message,
-		Data:       data,
-		Pagination: pagination,
-	})
-}
-
-// ErrorJSONResponse sends an error JSON response
-func ErrorJSONResponse(c *gin.Context, statusCode int, message string, errors []string) {
-	c.JSON(statusCode, dto.APIResponse{
-		Success: false,
+		Data:    data,
+		Meta:    pagination,
 		Message: message,
-		Errors:  errors,
 	})
 }
 
-// ErrorJSONResponseWithMessage sends a simple single-message error JSON response
+// ErrorJSONResponse sends an error JSON response with error code and optional field errors:
+// { "error": { "code": "...", "message": "...", "fields": { ... } } }
+func ErrorJSONResponse(c *gin.Context, statusCode int, code string, message string, fields map[string]string) {
+	c.JSON(statusCode, dto.APIErrorResponse{
+		Error: dto.APIErrorDetail{
+			Code:    code,
+			Message: message,
+			Fields:  fields,
+		},
+	})
+}
+
+// ErrorJSONResponseWithMessage sends a simple error response with just code and message
 func ErrorJSONResponseWithMessage(c *gin.Context, statusCode int, message string) {
-	c.JSON(statusCode, dto.APIResponse{
-		Success: false,
-		Message: message,
-	})
+	code := "INTERNAL_ERROR"
+	switch {
+	case statusCode == 400:
+		code = "BAD_REQUEST"
+	case statusCode == 401:
+		code = "UNAUTHORIZED"
+	case statusCode == 403:
+		code = "FORBIDDEN"
+	case statusCode == 404:
+		code = "NOT_FOUND"
+	case statusCode == 409:
+		code = "CONFLICT"
+	case statusCode == 429:
+		code = "RATE_LIMITED"
+	}
+	ErrorJSONResponse(c, statusCode, code, message, nil)
+}
+
+// ValidationErrorResponse sends a validation error response with per-field errors
+func ValidationErrorResponse(c *gin.Context, fields map[string]string) {
+	ErrorJSONResponse(c, 400, "VALIDATION_ERROR", "Data tidak valid", fields)
 }
 
 // ParsePaginationRequest helper to parse page and limit queries
@@ -48,6 +68,9 @@ func ParsePaginationRequest(c *gin.Context) (int, int) {
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 1 {
 		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
 	}
 
 	return page, limit

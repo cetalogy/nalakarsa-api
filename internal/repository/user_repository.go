@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"strings"
 
 	"nalakarsa/internal/model"
 
@@ -15,11 +16,13 @@ type UserRepository interface {
 	GetByID(id uuid.UUID) (*model.User, error)
 	UpdateProfile(profile *model.Profile) error
 	UpdateAvatar(userID uuid.UUID, avatarURL string) error
+	IncrementViewCount(userID uuid.UUID) error
 	ListUsers(search, role string, page, limit int) ([]model.User, int64, error)
 	CreateRefreshToken(rt *model.RefreshToken) error
 	GetRefreshToken(token string) (*model.RefreshToken, error)
 	DeleteRefreshToken(token string) error
 	DeleteRefreshTokensByUserID(userID uuid.UUID) error
+	CountDiscussions(userID uuid.UUID) (int64, error)
 }
 
 type pgUserRepository struct {
@@ -31,6 +34,9 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 func (r *pgUserRepository) Create(user *model.User) error {
+	// Normalize email to lowercase
+	user.Email = strings.ToLower(strings.TrimSpace(user.Email))
+
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(user).Error; err != nil {
 			return err
@@ -45,7 +51,7 @@ func (r *pgUserRepository) Create(user *model.User) error {
 
 func (r *pgUserRepository) GetByEmail(email string) (*model.User, error) {
 	var user model.User
-	err := r.db.Preload("Profile").Where("email = ?", email).First(&user).Error
+	err := r.db.Preload("Profile").Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -77,6 +83,12 @@ func (r *pgUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) erro
 	return r.db.Model(&model.Profile{}).
 		Where("user_id = ?", userID).
 		Update("avatar_url", avatarURL).Error
+}
+
+func (r *pgUserRepository) IncrementViewCount(userID uuid.UUID) error {
+	return r.db.Model(&model.Profile{}).
+		Where("user_id = ?", userID).
+		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
 
 func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]model.User, int64, error) {
@@ -133,4 +145,10 @@ func (r *pgUserRepository) DeleteRefreshToken(token string) error {
 
 func (r *pgUserRepository) DeleteRefreshTokensByUserID(userID uuid.UUID) error {
 	return r.db.Where("user_id = ?", userID).Delete(&model.RefreshToken{}).Error
+}
+
+func (r *pgUserRepository) CountDiscussions(userID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Discussion{}).Where("user_id = ?", userID).Count(&count).Error
+	return count, err
 }
