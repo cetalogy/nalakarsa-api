@@ -7,10 +7,39 @@ import (
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/database"
-	"nalakarsa/internal/handler"
-	"nalakarsa/internal/repository"
+	authhandler "nalakarsa/internal/handler/auth"
+	connectionhandler "nalakarsa/internal/handler/connection"
+	conversationhandler "nalakarsa/internal/handler/conversation"
+	dashboardhandler "nalakarsa/internal/handler/dashboard"
+	discussionhandler "nalakarsa/internal/handler/discussion"
+	notificationhandler "nalakarsa/internal/handler/notification"
+	projecthandler "nalakarsa/internal/handler/project"
+	userhandler "nalakarsa/internal/handler/user"
+	"nalakarsa/internal/middleware"
+	connectionrepository "nalakarsa/internal/repository/connection"
+	conversationrepository "nalakarsa/internal/repository/conversation"
+	discussionrepository "nalakarsa/internal/repository/discussion"
+	notificationrepository "nalakarsa/internal/repository/notification"
+	projectrepository "nalakarsa/internal/repository/project"
+	userrepository "nalakarsa/internal/repository/user"
+	authservice "nalakarsa/internal/service/auth"
+	connectionservice "nalakarsa/internal/service/connection"
+	conversationservice "nalakarsa/internal/service/conversation"
+	dashboardservice "nalakarsa/internal/service/dashboard"
+	discussionservice "nalakarsa/internal/service/discussion"
+	notificationservice "nalakarsa/internal/service/notification"
+	projectservice "nalakarsa/internal/service/project"
+	userservice "nalakarsa/internal/service/user"
+
 	"nalakarsa/internal/routes"
-	"nalakarsa/internal/service"
+	authroutes "nalakarsa/internal/routes/auth"
+	connectionroutes "nalakarsa/internal/routes/connection"
+	conversationroutes "nalakarsa/internal/routes/conversation"
+	dashboardroutes "nalakarsa/internal/routes/dashboard"
+	discussionroutes "nalakarsa/internal/routes/discussion"
+	notificationroutes "nalakarsa/internal/routes/notification"
+	projectroutes "nalakarsa/internal/routes/project"
+	userroutes "nalakarsa/internal/routes/user"
 	"nalakarsa/seed"
 
 	"github.com/gin-gonic/gin"
@@ -44,40 +73,47 @@ func main() {
 	// 4. Initialize Dependency Layers (Dependency Injection)
 
 	// Repositories
-	userRepo := repository.NewUserRepository(db)
-	discRepo := repository.NewDiscussionRepository(db)
-	connRepo := repository.NewConnectionRepository(db)
-	projRepo := repository.NewProjectRepository(db)
-	convRepo := repository.NewConversationRepository(db)
-	notifRepo := repository.NewNotificationRepository(db)
+	userRepo := userrepository.NewUserRepository(db)
+	discRepo := discussionrepository.NewDiscussionRepository(db)
+	connRepo := connectionrepository.NewConnectionRepository(db)
+	projRepo := projectrepository.NewProjectRepository(db)
+	convRepo := conversationrepository.NewConversationRepository(db)
+	notifRepo := notificationrepository.NewNotificationRepository(db)
 
 	// Services
-	authService := service.NewAuthService(userRepo, cfg)
-	userService := service.NewUserService(userRepo, connRepo, projRepo)
-	discService := service.NewDiscussionService(discRepo, userRepo)
-	connService := service.NewConnectionService(connRepo, userRepo)
-	projService := service.NewProjectService(projRepo, userRepo)
-	convService := service.NewConversationService(convRepo, userRepo)
-	notifService := service.NewNotificationService(notifRepo)
-	dashService := service.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)
+	authService := authservice.NewAuthService(userRepo, cfg)
+	userService := userservice.NewUserService(userRepo, connRepo, projRepo)
+	discService := discussionservice.NewDiscussionService(discRepo, userRepo)
+	connService := connectionservice.NewConnectionService(connRepo, userRepo)
+	projService := projectservice.NewProjectService(projRepo, userRepo)
+	convService := conversationservice.NewConversationService(convRepo, userRepo)
+	notifService := notificationservice.NewNotificationService(notifRepo)
+	dashService := dashboardservice.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)
 
 	// Handlers
-	authHandler := handler.NewAuthHandler(authService)
-	userHandler := handler.NewUserHandler(userService, cfg)
-	discHandler := handler.NewDiscussionHandler(discService)
-	connHandler := handler.NewConnectionHandler(connService)
-	projHandler := handler.NewProjectHandler(projService)
-	convHandler := handler.NewConversationHandler(convService)
-	notifHandler := handler.NewNotificationHandler(notifService)
-	dashHandler := handler.NewDashboardHandler(dashService)
+	authHandler := authhandler.NewAuthHandler(authService)
+	userHandler := userhandler.NewUserHandler(userService, cfg)
+	discHandler := discussionhandler.NewDiscussionHandler(discService)
+	connHandler := connectionhandler.NewConnectionHandler(connService)
+	projHandler := projecthandler.NewProjectHandler(projService)
+	convHandler := conversationhandler.NewConversationHandler(convService)
+	notifHandler := notificationhandler.NewNotificationHandler(notifService)
+	dashHandler := dashboardhandler.NewDashboardHandler(dashService)
 
 	// 5. Setup Routes
-	r := routes.SetupRouter(
-		cfg,
-		authHandler, userHandler, discHandler,
-		projHandler, connHandler, convHandler,
-		notifHandler, dashHandler,
-	)
+	r := routes.NewRouter(cfg)
+	v1 := r.Group("/api/v1")
+	protected := v1.Group("")
+	protected.Use(middleware.AuthMiddleware(cfg))
+
+	authroutes.RegisterRoutes(v1, protected, authHandler)
+	userroutes.RegisterRoutes(v1, protected, userHandler, connHandler.GetSuggestions)
+	discussionroutes.RegisterRoutes(v1, protected, discHandler)
+	connectionroutes.RegisterRoutes(protected, connHandler)
+	projectroutes.RegisterRoutes(v1, protected, projHandler)
+	conversationroutes.RegisterRoutes(protected, convHandler)
+	notificationroutes.RegisterRoutes(protected, notifHandler)
+	dashboardroutes.RegisterRoutes(protected, dashHandler)
 
 	// Root Healthcheck endpoint
 	r.GET("/", func(c *gin.Context) {

@@ -16,12 +16,12 @@ Struktur direktori utama proyek dirancang sebagai berikut:
 │   ├── config/              # Manajemen variabel lingkungan (.env)
 │   ├── database/            # Inisialisasi DB, migrasi, dan seeders GORM
 │   ├── dto/                 # Data Transfer Objects untuk request/response & validasi
-│   ├── handler/             # Layer Handler HTTP (Gin Controllers)
+│   ├── handler/             # Handler HTTP per modul (Gin Controllers)
 │   ├── middleware/          # JWT Auth, CORS, Logger, Recovery
 │   ├── model/               # Entitas model database GORM
-│   ├── repository/          # Layer akses database (Repository Pattern)
-│   ├── routes/              # Pendaftaran dan pengelompokan rute REST API
-│   ├── service/             # Layer Logika Bisnis (Usecase Layer)
+│   ├── repository/          # Repository per modul (Repository Pattern)
+│   ├── routes/              # Register route per modul
+│   ├── service/              # Service per modul (Usecase Layer)
 │   └── utils/               # Utilitas (hash bcrypt, JWT generation, dll)
 ├── pkg/                     # Kode utilitas publik (opsional jika digunakan oleh project luar)
 ├── docs/                    # Dokumentasi OpenAPI/Swagger (dihasilkan otomatis oleh Swag)
@@ -74,11 +74,15 @@ Data Transfer Object (DTO) digunakan untuk memisahkan data internal database den
 Menerapkan **Repository Pattern**. Layer ini adalah satu-satunya bagian kode yang berinteraksi langsung dengan database melalui GORM.
 * Setiap repositori didefinisikan sebagai *interface* (misal: `UserRepository` interface) dan memiliki implementasi struct konkret (misal: `pgUserRepository`).
 * Hal ini mempermudah proses mocking pada pengujian unit.
+* Implementasi dipisah ke subfolder modul, misalnya `repository/user/`,
+  `repository/project/`, dan `repository/discussion/`.
 
 ### 7. `internal/service/`
 Layer logika bisnis (sering disebut *Usecase*).
 * Layer ini memproses aturan bisnis sistem (contoh: mengecek keunikan email sebelum registrasi, membandingkan password dengan bcrypt, memvalidasi apakah pelamar kolaborasi memiliki peran yang sesuai).
 * Tidak mengetahui detail database atau HTTP (tidak bergantung pada Gin atau SQL langsung).
+* Setiap modul memiliki subfolder sendiri, misalnya `service/auth/` dan
+  `service/project/`. Dependency repository di-import langsung dari modul terkait.
 
 ### 8. `internal/handler/`
 Controller HTTP yang bertindak sebagai jembatan antara protokol HTTP dan service.
@@ -86,6 +90,8 @@ Controller HTTP yang bertindak sebagai jembatan antara protokol HTTP dan service
 * Memvalidasi request menggunakan DTO.
 * Memanggil fungsi logika bisnis di layer Service.
 * Mengembalikan HTTP Status Code dan JSON response standar.
+* Setiap modul memiliki subfolder handler sendiri dan hanya menerima service dari
+  modul terkait melalui constructor.
 
 ### 9. `internal/middleware/`
 Menyimpan fungsi interseptor request:
@@ -94,7 +100,12 @@ Menyimpan fungsi interseptor request:
 * `LoggerMiddleware`: Mencatat setiap request masuk ke dalam logger terstruktur (`slog`).
 
 ### 10. `internal/routes/`
-Mengatur pemetaan endpoint ke handler-nya masing-masing. Di sini grup rute seperti `/api/v1/auth`, `/api/v1/users`, `/api/v1/discussions`, dan `/api/v1/collaborations` didaftarkan.
+`routes.NewRouter` hanya menyiapkan engine, middleware global, dan health check.
+Pemetaan endpoint dipisah per modul melalui fungsi `RegisterRoutes`, misalnya
+`routes/auth`, `routes/project`, dan `routes/discussion`. Semua fungsi register
+dipanggil eksplisit dari `main.go` setelah dependency repository, service, dan
+handler selesai dibuat. Dengan begitu route module tidak lagi terkumpul dalam
+satu file besar.
 
 ### 11. `internal/utils/`
 Berisi helper kecil yang dapat digunakan secara horizontal, seperti pengolah JWT (Generate, Validate), password hasher (Bcrypt), format standard pagination, dan penyeragaman format respon JSON.
