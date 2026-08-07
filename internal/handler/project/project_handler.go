@@ -37,6 +37,31 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusCreated, "Project created successfully", gin.H{"id": id}, nil)
 }
 
+func (h *ProjectHandler) CreateFromDiscussion(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var req dto.CreateCollaborationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		return
+	}
+
+	id, err := h.projService.CreateFromDiscussion(userID, req.DiscussionID)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Wait, FE expects full CollaborationProject object. Let's fetch it.
+	project, err := h.projService.GetByID(id)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusCreated, "Project created from discussion", gin.H{"id": id}, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Project created from discussion successfully", project.ProjectResponse, nil)
+}
+
 func (h *ProjectHandler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

@@ -2,20 +2,23 @@ package authservice
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
-	userrepository "nalakarsa/internal/repository/user"
 	"nalakarsa/internal/utils"
+	userrepository "nalakarsa/internal/repository/user"
+
+	"github.com/google/uuid"
 )
 
 type AuthService interface {
-	Register(req dto.RegisterRequest) (*dto.RegisterResponse, error)
-	Login(req dto.LoginRequest) (*dto.LoginData, error)
-	RefreshToken(req dto.RefreshTokenRequest) (*dto.RefreshTokenData, error)
+	Register(req dto.RegisterRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error)
+	Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error)
+	RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthRequestContext) (*dto.RefreshTokenData, error)
 	Logout(token string) error
 }
 
@@ -28,7 +31,7 @@ func NewAuthService(userRepo userrepository.UserRepository, cfg *config.Config) 
 	return &authService{userRepo: userRepo, cfg: cfg}
 }
 
-func (s *authService) Register(req dto.RegisterRequest) (*dto.RegisterResponse, error) {
+func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
 	// Normalize email
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
@@ -47,39 +50,70 @@ func (s *authService) Register(req dto.RegisterRequest) (*dto.RegisterResponse, 
 		return nil, err
 	}
 
-	// Create user & profile models
+	// Create user model
 	user := &model.User{
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
 		Role:         req.Role,
 		SystemRole:   "user",
 		Status:       "active",
-		Profile: model.Profile{
-			NamaLengkap:    req.NamaLengkap,
-			GelarDepan:     req.GelarDepan,
-			GelarBelakang:  req.GelarBelakang,
-			Afiliasi:       req.Afiliasi,
-			Lokasi:         req.Lokasi,
-			BidangKeahlian: req.BidangKeahlian,
-			Industry:       req.Industry,
-			Bio:            req.Bio,
-			Mission:        req.Mission,
-			AvatarURL:      req.AvatarURL,
-		},
+		FirstName:    req.FirstName,
+		MiddleName:   req.MiddleName,
+		LastName:     req.LastName,
+		FullName:     req.FullName,
+		PrefixTitle:  req.PrefixTitle,
+		SuffixTitle:  req.SuffixTitle,
+		Affiliation:  req.Affiliation,
+		Location:     req.Location,
+		Expertise:    req.Expertise,
+		Industry:     req.Industry,
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, err
 	}
 
-	return &dto.RegisterResponse{
-		ID:    user.ID,
-		Email: user.Email,
-		Role:  user.Role,
+	// Generate Tokens
+	accessTokenPayload, err := utils.GenerateAccessToken(user.ID, user.Email, user.Role, s.cfg.JWTSecret, s.cfg.JWTAccessExpiration)
+	if err != nil {
+		return nil, err
+	}
+	refreshTokenPayload, err := utils.GenerateRefreshToken(user.ID, s.cfg.JWTRefreshSecret, s.cfg.JWTRefreshExpiration)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.saveRefreshTokenWithSessionMeta(user.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, ctx); err != nil {
+		return nil, err
+	}
+
+	return &dto.AuthData{
+		Token:        accessTokenPayload.Token,
+		AccessToken:  accessTokenPayload.Token,
+		RefreshToken: refreshTokenPayload.Token,
+		ExpiresIn:    s.cfg.JWTAccessExpiration,
+		User: dto.UserResponse{
+			ID:          user.ID,
+			Email:       user.Email,
+			Role:        user.Role,
+			CreatedAt:   user.CreatedAt,
+			FirstName:   user.FirstName,
+			MiddleName:  user.MiddleName,
+			LastName:    user.LastName,
+			FullName:    user.FullName,
+			PrefixTitle: user.PrefixTitle,
+			SuffixTitle: user.SuffixTitle,
+			Affiliation: user.Affiliation,
+			Location:    user.Location,
+			Expertise:   user.Expertise,
+			Industry:    user.Industry,
+			Mission:     user.Mission,
+			AvatarURL:   user.AvatarURL,
+		},
 	}, nil
 }
 
-func (s *authService) Login(req dto.LoginRequest) (*dto.LoginData, error) {
+func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
 	user, err := s.userRepo.GetByEmail(req.Email)
@@ -122,29 +156,37 @@ func (s *authService) Login(req dto.LoginRequest) (*dto.LoginData, error) {
 		return nil, err
 	}
 
-	// Store Refresh Token in DB
-	rtModel := &model.RefreshToken{
-		UserID:    user.ID,
-		Token:     refreshTokenPayload.Token,
-		ExpiresAt: refreshTokenPayload.ExpiresAt,
-	}
-	if err := s.userRepo.CreateRefreshToken(rtModel); err != nil {
+	if err := s.saveRefreshTokenWithSessionMeta(user.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, ctx); err != nil {
 		return nil, err
 	}
 
-	return &dto.LoginData{
+	return &dto.AuthData{
+		Token:        accessTokenPayload.Token,
 		AccessToken:  accessTokenPayload.Token,
 		RefreshToken: refreshTokenPayload.Token,
 		ExpiresIn:    s.cfg.JWTAccessExpiration,
 		User: dto.UserResponse{
-			ID:    user.ID,
-			Email: user.Email,
-			Role:  user.Role,
+			ID:          user.ID,
+			Email:       user.Email,
+			Role:        user.Role,
+			CreatedAt:   user.CreatedAt,
+			FirstName:   user.FirstName,
+			MiddleName:  user.MiddleName,
+			LastName:    user.LastName,
+			FullName:    user.FullName,
+			PrefixTitle: user.PrefixTitle,
+			SuffixTitle: user.SuffixTitle,
+			Affiliation: user.Affiliation,
+			Location:    user.Location,
+			Expertise:   user.Expertise,
+			Industry:    user.Industry,
+			Mission:     user.Mission,
+			AvatarURL:   user.AvatarURL,
 		},
 	}, nil
 }
 
-func (s *authService) RefreshToken(req dto.RefreshTokenRequest) (*dto.RefreshTokenData, error) {
+func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthRequestContext) (*dto.RefreshTokenData, error) {
 	// Find token in database
 	rt, err := s.userRepo.GetRefreshToken(req.RefreshToken)
 	if err != nil {
@@ -191,17 +233,17 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest) (*dto.RefreshTok
 		return nil, err
 	}
 
-	// Delete old refresh token, save new one
-	if err := s.userRepo.DeleteRefreshToken(req.RefreshToken); err != nil {
+	// Save new token first so we don't silently drop sessions on storage failure.
+	if err := s.saveRefreshTokenWithSessionMeta(user.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, s.withFallbackSessionContext(ctx, rt)); err != nil {
 		return nil, err
 	}
 
-	newRt := &model.RefreshToken{
-		UserID:    user.ID,
-		Token:     refreshTokenPayload.Token,
-		ExpiresAt: refreshTokenPayload.ExpiresAt,
-	}
-	if err := s.userRepo.CreateRefreshToken(newRt); err != nil {
+	// Revoke old refresh token after the new token is safely persisted.
+	if err := s.userRepo.DeleteRefreshToken(req.RefreshToken); err != nil {
+		// Best-effort rollback: remove the newly issued token so we don't keep extra active tokens.
+		if rollbackErr := s.userRepo.DeleteRefreshToken(refreshTokenPayload.Token); rollbackErr != nil {
+			return nil, fmt.Errorf("failed to revoke old refresh token and rollback new token: %w", rollbackErr)
+		}
 		return nil, err
 	}
 
@@ -214,4 +256,82 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest) (*dto.RefreshTok
 
 func (s *authService) Logout(token string) error {
 	return s.userRepo.DeleteRefreshToken(token)
+}
+
+func (s *authService) saveRefreshTokenWithSessionMeta(
+	userID uuid.UUID,
+	token string,
+	expiresAt time.Time,
+	ctx *dto.AuthRequestContext,
+) error {
+	if s.cfg.MaxActiveRefreshTokens > 0 {
+		if err := s.limitActiveRefreshTokens(userID, s.cfg.MaxActiveRefreshTokens-1); err != nil {
+			return err
+		}
+	}
+
+	deviceInfo := "unknown-device"
+	userAgent := ""
+	ipAddress := ""
+	if ctx != nil {
+		if strings.TrimSpace(ctx.DeviceInfo) != "" {
+			deviceInfo = strings.TrimSpace(ctx.DeviceInfo)
+		}
+		userAgent = strings.TrimSpace(ctx.UserAgent)
+		ipAddress = strings.TrimSpace(ctx.IPAddress)
+	}
+
+	refreshToken := &model.RefreshToken{
+		UserID:     userID,
+		Token:      token,
+		ExpiresAt:  expiresAt,
+		DeviceInfo: deviceInfo,
+		UserAgent:  userAgent,
+		IPAddress:  ipAddress,
+	}
+
+	return s.userRepo.CreateRefreshToken(refreshToken)
+}
+
+func (s *authService) withFallbackSessionContext(
+	ctx *dto.AuthRequestContext,
+	legacy *model.RefreshToken,
+) *dto.AuthRequestContext {
+	fallback := &dto.AuthRequestContext{}
+	if ctx != nil {
+		*fallback = *ctx
+	}
+
+	if legacy == nil {
+		return fallback
+	}
+
+	if strings.TrimSpace(fallback.DeviceInfo) == "" {
+		fallback.DeviceInfo = legacy.DeviceInfo
+	}
+	if strings.TrimSpace(fallback.UserAgent) == "" {
+		fallback.UserAgent = legacy.UserAgent
+	}
+	if strings.TrimSpace(fallback.IPAddress) == "" {
+		fallback.IPAddress = legacy.IPAddress
+	}
+
+	return fallback
+}
+
+func (s *authService) limitActiveRefreshTokens(userID uuid.UUID, keepLatest int) error {
+	if keepLatest < 0 {
+		return nil
+	}
+
+	count, err := s.userRepo.CountActiveRefreshTokens(userID)
+	if err != nil {
+		return err
+	}
+
+	if int(count) <= keepLatest {
+		return nil
+	}
+
+	return s.userRepo.DeleteOldestRefreshTokensByUser(userID, keepLatest)
 }

@@ -3,6 +3,7 @@ package userrepository
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"nalakarsa/internal/model"
 
@@ -14,7 +15,7 @@ type UserRepository interface {
 	Create(user *model.User) error
 	GetByEmail(email string) (*model.User, error)
 	GetByID(id uuid.UUID) (*model.User, error)
-	UpdateProfile(profile *model.Profile) error
+	UpdateProfile(user *model.User) error
 	UpdateAvatar(userID uuid.UUID, avatarURL string) error
 	IncrementViewCount(userID uuid.UUID) error
 	ListUsers(search, role string, page, limit int) ([]model.User, int64, error)
@@ -22,6 +23,8 @@ type UserRepository interface {
 	GetRefreshToken(token string) (*model.RefreshToken, error)
 	DeleteRefreshToken(token string) error
 	DeleteRefreshTokensByUserID(userID uuid.UUID) error
+	CountActiveRefreshTokens(userID uuid.UUID) (int64, error)
+	DeleteOldestRefreshTokensByUser(userID uuid.UUID, keepLatest int) error
 	CountDiscussions(userID uuid.UUID) (int64, error)
 }
 
@@ -41,17 +44,13 @@ func (r *pgUserRepository) Create(user *model.User) error {
 		if err := tx.Create(user).Error; err != nil {
 			return err
 		}
-		user.Profile.UserID = user.ID
-		if err := tx.Create(&user.Profile).Error; err != nil {
-			return err
-		}
 		return nil
 	})
 }
 
 func (r *pgUserRepository) GetByEmail(email string) (*model.User, error) {
 	var user model.User
-	err := r.db.Preload("Profile").Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&user).Error
+	err := r.db.Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -63,7 +62,7 @@ func (r *pgUserRepository) GetByEmail(email string) (*model.User, error) {
 
 func (r *pgUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 	var user model.User
-	err := r.db.Preload("Profile").Where("id = ?", id).First(&user).Error
+	err := r.db.Where("id = ?", id).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -73,21 +72,21 @@ func (r *pgUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 	return &user, nil
 }
 
-func (r *pgUserRepository) UpdateProfile(profile *model.Profile) error {
-	return r.db.Model(&model.Profile{}).
-		Where("user_id = ?", profile.UserID).
-		Updates(profile).Error
+func (r *pgUserRepository) UpdateProfile(user *model.User) error {
+	return r.db.Model(&model.User{}).
+		Where("id = ?", user.ID).
+		Updates(user).Error
 }
 
 func (r *pgUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
-	return r.db.Model(&model.Profile{}).
-		Where("user_id = ?", userID).
+	return r.db.Model(&model.User{}).
+		Where("id = ?", userID).
 		Update("avatar_url", avatarURL).Error
 }
 
 func (r *pgUserRepository) IncrementViewCount(userID uuid.UUID) error {
-	return r.db.Model(&model.Profile{}).
-		Where("user_id = ?", userID).
+	return r.db.Model(&model.User{}).
+		Where("id = ?", userID).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
 
@@ -95,7 +94,7 @@ func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]mo
 	var users []model.User
 	var total int64
 
-	query := r.db.Model(&model.User{}).Preload("Profile")
+	query := r.db.Model(&model.User{})
 
 	if role != "" {
 		query = query.Where("role = ?", role)
@@ -103,9 +102,7 @@ func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]mo
 
 	if search != "" {
 		searchTerm := "%" + search + "%"
-		// Join profiles table to filter on profile fields
-		query = query.Joins("INNER JOIN profiles ON profiles.user_id = users.id").
-			Where("profiles.nama_lengkap ILIKE ? OR profiles.afiliasi ILIKE ? OR profiles.bidang_keahlian ILIKE ?", searchTerm, searchTerm, searchTerm)
+		query = query.Where("full_name ILIKE ? OR affiliation ILIKE ? OR expertise ILIKE ?", searchTerm, searchTerm, searchTerm)
 	}
 
 	// Count total records
@@ -145,6 +142,39 @@ func (r *pgUserRepository) DeleteRefreshToken(token string) error {
 
 func (r *pgUserRepository) DeleteRefreshTokensByUserID(userID uuid.UUID) error {
 	return r.db.Where("user_id = ?", userID).Delete(&model.RefreshToken{}).Error
+}
+
+func (r *pgUserRepository) CountActiveRefreshTokens(userID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.RefreshToken{}).
+		Where("user_id = ?", userID).
+		Where("expires_at > ?", time.Now()).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *pgUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, keepLatest int) error {
+	if keepLatest < 0 {
+		keepLatest = 0
+	}
+
+	// Cleanup expired refresh tokens first so active limit focuses on valid sessions.
+	if err := r.db.Where("user_id = ? AND expires_at <= ?", userID, time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
+		return err
+	}
+
+	var ids []uuid.UUID
+	err := r.db.Model(&model.RefreshToken{}).
+		Where("user_id = ?", userID).
+		Where("expires_at > ?", time.Now()).
+		Order("created_at desc").
+		Offset(keepLatest).
+		Pluck("id", &ids).Error
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+
+	return r.db.Where("id IN ?", ids).Delete(&model.RefreshToken{}).Error
 }
 
 func (r *pgUserRepository) CountDiscussions(userID uuid.UUID) (int64, error) {

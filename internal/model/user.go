@@ -19,6 +19,19 @@ type User struct {
 	UpdatedAt       time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt       gorm.DeletedAt `gorm:"index"`
 
-	// Relations
-	Profile Profile `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	// Profile fields
+	FirstName   string  `gorm:"type:varchar(100);not null"`
+	MiddleName  *string `gorm:"type:varchar(100)"`
+	LastName    string  `gorm:"type:varchar(100);not null"`
+	FullName    string  `gorm:"type:varchar(255);not null"`
+	PrefixTitle string  `gorm:"type:varchar(100);default:'';not null"`
+	SuffixTitle string  `gorm:"type:varchar(100);default:'';not null"`
+	Affiliation string  `gorm:"type:varchar(255);not null"`
+	Location    string  `gorm:"type:varchar(255);not null"`
+	Expertise   string  `gorm:"type:varchar(255);not null"`
+	Industry    string  `gorm:"type:varchar(255);default:'';not null"`
+	Bio         string  `gorm:"type:text;default:'';not null"`
+	Mission     string  `gorm:"type:text;default:'';not null"`
+	AvatarURL   string  `gorm:"type:varchar(255);default:'';not null"`
+	ViewCount   int     `gorm:"type:int;default:0;not null"`
 }

@@ -1,62 +1,66 @@
 package dto
 
-import "github.com/google/uuid"
+
 
 type RegisterRequest struct {
-	Email          string `json:"email" form:"email" binding:"required,email"`
-	Password       string `json:"password" form:"password" binding:"required,min=8"`
-	Role           string `json:"role" form:"role" binding:"required,oneof=Akademisi Praktisi Profesional"`
-	NamaLengkap    string `json:"nama_lengkap" form:"nama_lengkap" binding:"required"`
-	GelarDepan     string `json:"gelar_depan" form:"gelar_depan"`
-	GelarBelakang  string `json:"gelar_belakang" form:"gelar_belakang"`
-	Afiliasi       string `json:"afiliasi" form:"afiliasi" binding:"required"`
-	Lokasi         string `json:"lokasi" form:"lokasi" binding:"required"`
-	BidangKeahlian string `json:"bidang_keahlian" form:"bidang_keahlian" binding:"required"`
-	Industry       string `json:"industry" form:"industry"`
-	Bio            string `json:"bio" form:"bio"`
-	Mission        string `json:"mission" form:"mission"`
-	AvatarURL      string `json:"avatar_url" form:"avatar_url"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required,min=6"`
+	Role           string `json:"role" binding:"required"`
+	FirstName      string  `json:"firstName" binding:"required"`
+	MiddleName     *string `json:"middleName"`
+	LastName       string  `json:"lastName" binding:"required"`
+	FullName       string  `json:"fullName" binding:"required"`
+	PrefixTitle    string  `json:"prefixTitle"`
+	SuffixTitle    string  `json:"suffixTitle"`
+	Affiliation    string  `json:"affiliation" binding:"required"`
+	Location       string  `json:"location" binding:"required"`
+	Expertise      string  `json:"expertise" binding:"required"`
+	Industry       string `json:"industry"`
+	Bio            string `json:"bio"`
+	Mission        string `json:"mission"`
+	AvatarURL      string `json:"avatar_url"`
 }
 
-type UserResponse struct {
-	ID    uuid.UUID `json:"id" form:"id"`
-	Email string    `json:"email" form:"email"`
-	Role  string    `json:"role" form:"role"`
-}
 
-type RegisterResponse struct {
-	ID    uuid.UUID `json:"id" form:"id"`
-	Email string    `json:"email" form:"email"`
-	Role  string    `json:"role" form:"role"`
-}
 
 type LoginRequest struct {
-	Email    string `json:"email" form:"email" binding:"required,email"`
-	Password string `json:"password" form:"password" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
 
-type LoginData struct {
-	AccessToken  string       `json:"access_token" form:"access_token"`
-	RefreshToken string       `json:"refresh_token" form:"refresh_token"`
-	ExpiresIn    int          `json:"expires_in" form:"expires_in"`
-	User         UserResponse `json:"user" form:"user"`
+type AuthData struct {
+	Token        string       `json:"token"` // For FE spec
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	ExpiresIn    int          `json:"expires_in"`
+	User         UserResponse `json:"user"`
+}
+
+type AuthRequestContext struct {
+	DeviceInfo string
+	IPAddress  string
+	UserAgent  string
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" form:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 type RefreshTokenData struct {
-	AccessToken  string `json:"access_token" form:"access_token"`
-	RefreshToken string `json:"refresh_token" form:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in" form:"expires_in"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 type ForgotPasswordRequest struct {
-	Email string `json:"email" form:"email" binding:"required,email"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type ResetPasswordRequest struct {
-	Token       string `json:"token" form:"token" binding:"required"`
-	NewPassword string `json:"new_password" form:"new_password" binding:"required,min=8"`
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
 }

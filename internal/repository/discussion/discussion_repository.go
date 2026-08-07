@@ -20,6 +20,7 @@ type DiscussionRepository interface {
 	CreateReply(reply *model.DiscussionReply) error
 	GetReplyByID(id uuid.UUID) (*model.DiscussionReply, error)
 	DeleteReply(id uuid.UUID) error
+	ListReplies(discussionID uuid.UUID, page, limit int) ([]model.DiscussionReply, int64, error)
 	CountReplies(discussionID uuid.UUID) (int64, error)
 
 	// Votes
@@ -123,6 +124,24 @@ func (r *pgDiscussionRepository) GetReplyByID(id uuid.UUID) (*model.DiscussionRe
 		return nil, err
 	}
 	return &reply, nil
+}
+
+func (r *pgDiscussionRepository) ListReplies(discussionID uuid.UUID, page, limit int) ([]model.DiscussionReply, int64, error) {
+	var replies []model.DiscussionReply
+	var total int64
+
+	query := r.db.Model(&model.DiscussionReply{}).Where("discussion_id = ?", discussionID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := query.
+		Preload("User.Profile").
+		Order("discussion_replies.created_at asc").
+		Limit(limit).Offset(offset).
+		Find(&replies).Error
+	return replies, total, err
 }
 
 func (r *pgDiscussionRepository) DeleteReply(id uuid.UUID) error {

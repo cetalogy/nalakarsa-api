@@ -9,45 +9,37 @@ import (
 // --- Conversation DTOs ---
 
 type CreateDirectConversationRequest struct {
-	TargetUserID uuid.UUID `json:"target_user_id" form:"target_user_id" binding:"required"`
+	TargetUserID uuid.UUID `json:"target_user_id" binding:"required"`
 }
 
-type ConversationParticipant struct {
-	ID          uuid.UUID `json:"id" form:"id"`
-	NamaLengkap string    `json:"nama_lengkap" form:"nama_lengkap"`
-	Role        string    `json:"role" form:"role"`
-	AvatarURL   string    `json:"avatar_url" form:"avatar_url"`
-}
-
-type LastMessageResponse struct {
-	ID        uuid.UUID `json:"id" form:"id"`
-	Body      string    `json:"body" form:"body"`
-	SenderID  uuid.UUID `json:"sender_id" form:"sender_id"`
-	CreatedAt time.Time `json:"created_at" form:"created_at"`
+type StartChatRequest struct {
+	Name string `json:"name" binding:"required"`
+	Role string `json:"role" binding:"required"`
 }
 
 type ConversationResponse struct {
-	ID          uuid.UUID               `json:"id" form:"id"`
-	Participant ConversationParticipant `json:"participant" form:"participant"`
-	LastMessage *LastMessageResponse    `json:"last_message" form:"last_message"`
-	UnreadCount int64                   `json:"unread_count" form:"unread_count"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Role        string    `json:"role"`
+	Avatar      string    `json:"avatar"`
+	LastMessage string    `json:"lastMessage"`
 }
 
 // --- Message DTOs ---
 
 type SendMessageRequest struct {
-	Body string `json:"body" form:"body" binding:"required,min=1,max=5000"`
+	Text string `json:"text" binding:"required,min=1,max=5000"`
+	Body string `json:"body"` // Fallback for older clients if needed
 }
 
 type MessageResponse struct {
-	ID        uuid.UUID `json:"id" form:"id"`
-	Body      string    `json:"body" form:"body"`
-	SenderID  uuid.UUID `json:"sender_id" form:"sender_id"`
-	Status    string    `json:"status" form:"status"`
-	CreatedAt time.Time `json:"created_at" form:"created_at"`
+	ID     uuid.UUID `json:"id"`
+	Sender string    `json:"sender"` // "me" or "them"
+	Text   string    `json:"text"`
+	Time   time.Time `json:"time"`
 }
 
 type CursorPaginationResponse struct {
-	NextCursor string `json:"next_cursor,omitempty" form:"next_cursor"`
-	HasMore    bool   `json:"has_more" form:"has_more"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore    bool   `json:"has_more"`
 }

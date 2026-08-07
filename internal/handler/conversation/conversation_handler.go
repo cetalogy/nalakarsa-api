@@ -58,6 +58,24 @@ func (h *ConversationHandler) GetOrCreateDirect(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusOK, "Conversation retrieved successfully", conv, nil)
 }
 
+func (h *ConversationHandler) StartChat(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var req dto.StartChatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		return
+	}
+
+	conv, err := h.convService.StartChat(userID, req)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Chat started successfully", conv, nil)
+}
+
 func (h *ConversationHandler) ListMessages(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 	convID, err := uuid.Parse(c.Param("id"))
@@ -96,6 +114,11 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
 		return
+	}
+
+	// Map Text to Body if Text is provided (for FE compatibility)
+	if req.Text != "" {
+		req.Body = req.Text
 	}
 
 	msg, err := h.convService.SendMessage(userID, convID, req)

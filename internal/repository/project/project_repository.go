@@ -51,8 +51,8 @@ func (r *pgProjectRepository) Create(project *model.Project) error {
 
 func (r *pgProjectRepository) GetByID(id uuid.UUID) (*model.Project, error) {
 	var project model.Project
-	err := r.db.Preload("Owner.Profile").
-		Preload("Members.User.Profile").
+	err := r.db.Preload("Owner").
+		Preload("Members.User").
 		Preload("Milestones").
 		Where("id = ?", id).First(&project).Error
 	if err != nil {
@@ -68,7 +68,7 @@ func (r *pgProjectRepository) List(search, status, category string, page, limit 
 	var projects []model.Project
 	var total int64
 
-	query := r.db.Model(&model.Project{}).Preload("Owner.Profile")
+	query := r.db.Model(&model.Project{}).Preload("Owner")
 
 	if status != "" {
 		query = query.Where("projects.status = ?", status)
@@ -112,7 +112,7 @@ func (r *pgProjectRepository) CountByOwner(ownerID uuid.UUID, status string) (in
 
 func (r *pgProjectRepository) ListByUser(userID uuid.UUID) ([]model.Project, error) {
 	var projects []model.Project
-	err := r.db.Preload("Owner.Profile").Preload("Milestones").
+	err := r.db.Preload("Owner").Preload("Milestones").
 		Where("owner_id = ? OR id IN (SELECT project_id FROM project_members WHERE user_id = ? AND status = 'active')", userID, userID).
 		Where("status IN ('open', 'active', 'in_review')").
 		Order("updated_at desc").Find(&projects).Error
@@ -127,7 +127,7 @@ func (r *pgProjectRepository) CreateApplication(app *model.ProjectApplication) e
 
 func (r *pgProjectRepository) GetApplicationByID(id uuid.UUID) (*model.ProjectApplication, error) {
 	var app model.ProjectApplication
-	err := r.db.Preload("Applicant.Profile").Where("id = ?", id).First(&app).Error
+	err := r.db.Preload("Applicant").Where("id = ?", id).First(&app).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -139,7 +139,7 @@ func (r *pgProjectRepository) GetApplicationByID(id uuid.UUID) (*model.ProjectAp
 
 func (r *pgProjectRepository) ListApplications(projectID uuid.UUID) ([]model.ProjectApplication, error) {
 	var apps []model.ProjectApplication
-	err := r.db.Preload("Applicant.Profile").
+	err := r.db.Preload("Applicant").
 		Where("project_id = ?", projectID).
 		Order("created_at desc").Find(&apps).Error
 	return apps, err
@@ -157,7 +157,7 @@ func (r *pgProjectRepository) AddMember(member *model.ProjectMember) error {
 
 func (r *pgProjectRepository) ListMembers(projectID uuid.UUID) ([]model.ProjectMember, error) {
 	var members []model.ProjectMember
-	err := r.db.Preload("User.Profile").
+	err := r.db.Preload("User").
 		Where("project_id = ?", projectID).
 		Order("joined_at asc").Find(&members).Error
 	return members, err

@@ -25,6 +25,7 @@ type Config struct {
 	JWTRefreshSecret           string
 	JWTAccessExpiration        int
 	JWTRefreshExpiration       int
+	MaxActiveRefreshTokens     int
 	CORSAllowedOrigins         string
 	FrontendURL                string
 }
@@ -49,6 +50,7 @@ func LoadConfig() *Config {
 		FirebaseStorageBucket:      getEnv("FIREBASE_STORAGE_BUCKET", ""),
 		JWTAccessExpiration:        getEnvAsInt("JWT_ACCESS_EXPIRATION", 900),
 		JWTRefreshExpiration:       getEnvAsInt("JWT_REFRESH_EXPIRATION", 604800),
+		MaxActiveRefreshTokens:     getEnvAsInt("MAX_ACTIVE_REFRESH_TOKENS", 5),
 		CORSAllowedOrigins:         getEnv("CORS_ALLOWED_ORIGINS", "*"),
 		FrontendURL:                getEnv("FRONTEND_URL", "http://localhost:5173"),
 
