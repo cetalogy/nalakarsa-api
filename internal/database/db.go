@@ -59,7 +59,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	err = db.AutoMigrate(
 		// Core
 		&model.User{},
-		&model.Profile{},
+
 		&model.RefreshToken{},
 
 		// Discussions
@@ -83,6 +83,11 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 
 		// Notifications
 		&model.Notification{},
+
+		// Homepage (landing content)
+		&model.HomepageHero{},
+		&model.HomepageSection{},
+		&model.HomepageTestimonial{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)

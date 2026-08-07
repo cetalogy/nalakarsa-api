@@ -109,6 +109,40 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusOK, "Users list retrieved successfully", users, pagination)
 }
 
+func (h *UserHandler) GetMyProjects(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	projects, err := h.userService.GetMyProjects(userID)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "My projects retrieved successfully", projects, nil)
+}
+
+func (h *UserHandler) GetMyStats(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	stats, err := h.userService.GetMyStats(userID)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "My stats retrieved successfully", stats, nil)
+}
+
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {

@@ -31,7 +31,7 @@ func (s *notificationService) ListNotifications(userID uuid.UUID, page, limit in
 	for i, n := range notifs {
 		actorName := ""
 		if n.Actor != nil {
-			actorName = n.Actor.Profile.NamaLengkap
+			actorName = n.Actor.FullName
 		}
 
 		res[i] = dto.NotificationResponse{

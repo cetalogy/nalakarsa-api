@@ -2,6 +2,8 @@ package authhandler
 
 import (
 	"net/http"
+	"log"
+	"strings"
 
 	"nalakarsa/internal/dto"
 	authservice "nalakarsa/internal/service/auth"
@@ -25,7 +27,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	res, err := h.authService.Register(req)
+	res, err := h.authService.Register(req, h.buildRequestContext(c))
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
 		return
@@ -41,7 +43,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	res, err := h.authService.Login(req)
+	res, err := h.authService.Login(req, h.buildRequestContext(c))
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, err.Error())
 		return
@@ -57,7 +59,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	res, err := h.authService.RefreshToken(req)
+	res, err := h.authService.RefreshToken(req, h.buildRequestContext(c))
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, err.Error())
 		return
@@ -67,18 +69,39 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var req dto.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+	var req dto.LogoutRequest
+	// FE may not always send refresh_token for logout
+	_ = c.ShouldBindJSON(&req)
+
+	// Audit log always exists for logout events
+	userID, _ := c.Get("user_id")
+	if req.RefreshToken != "" {
+		log.Printf("[auth][logout] user_id=%v ip=%s action=logout_refresh_revoke requested=true", userID, c.ClientIP())
+		if err := h.authService.Logout(req.RefreshToken); err != nil {
+			log.Printf("[auth][logout] user_id=%v ip=%s action=logout_refresh_revoke result=failed error=%v", userID, c.ClientIP(), err)
+			// keep response success to avoid token-existence leakage
+		} else {
+			log.Printf("[auth][logout] user_id=%v ip=%s action=logout_refresh_revoke result=success", userID, c.ClientIP())
+		}
+		utils.JSONResponse(c, http.StatusOK, "Logout successful", nil, nil)
 		return
 	}
 
-	if err := h.authService.Logout(req.RefreshToken); err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
+	log.Printf("[auth][logout] user_id=%v ip=%s action=logout request_no_token", userID, c.ClientIP())
 	utils.JSONResponse(c, http.StatusOK, "Logout successful", nil, nil)
+}
+
+func (h *AuthHandler) buildRequestContext(c *gin.Context) *dto.AuthRequestContext {
+	deviceInfo := strings.TrimSpace(c.GetHeader("X-Device-Info"))
+	if deviceInfo == "" {
+		deviceInfo = strings.TrimSpace(c.GetHeader("User-Agent"))
+	}
+
+	return &dto.AuthRequestContext{
+		DeviceInfo: deviceInfo,
+		IPAddress:  c.ClientIP(),
+		UserAgent:  c.GetHeader("User-Agent"),
+	}
 }
 
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {

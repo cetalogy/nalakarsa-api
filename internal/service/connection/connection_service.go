@@ -49,11 +49,11 @@ func (s *connectionService) ListConnections(userID uuid.UUID, page, limit int) (
 			Status:    c.Status,
 			CreatedAt: c.CreatedAt,
 			User: dto.ConnectionUserResponse{
-				ID:          other.ID,
-				NamaLengkap: other.Profile.NamaLengkap,
-				Role:        other.Role,
-				Afiliasi:    other.Profile.Afiliasi,
-				AvatarURL:   other.Profile.AvatarURL,
+				ID:        other.ID,
+				FullName:  other.FullName,
+				Role:      other.Role,
+				Affiliation: other.Affiliation,
+				AvatarURL: other.AvatarURL,
 			},
 		}
 	}
@@ -79,11 +79,11 @@ func (s *connectionService) ListRequests(userID uuid.UUID, requestType string, p
 			Status:    c.Status,
 			CreatedAt: c.CreatedAt,
 			User: dto.ConnectionUserResponse{
-				ID:          other.ID,
-				NamaLengkap: other.Profile.NamaLengkap,
-				Role:        other.Role,
-				Afiliasi:    other.Profile.Afiliasi,
-				AvatarURL:   other.Profile.AvatarURL,
+				ID:        other.ID,
+				FullName:  other.FullName,
+				Role:      other.Role,
+				Affiliation: other.Affiliation,
+				AvatarURL: other.AvatarURL,
 			},
 		}
 	}
@@ -232,13 +232,13 @@ func (s *connectionService) GetSuggestions(userID uuid.UUID, limit int) ([]dto.U
 		mutualCount, _ := s.connRepo.CountMutual(userID, u.ID)
 
 		suggestions = append(suggestions, dto.UserSuggestionResponse{
-			ID:             u.ID,
-			NamaLengkap:    u.Profile.NamaLengkap,
-			Role:           u.Role,
-			Afiliasi:       u.Profile.Afiliasi,
-			BidangKeahlian: u.Profile.BidangKeahlian,
-			AvatarURL:      u.Profile.AvatarURL,
-			MutualCount:    mutualCount,
+			ID:          u.ID,
+			FullName:    u.FullName,
+			Role:        u.Role,
+			Affiliation: u.Affiliation,
+			Expertise:   u.Expertise,
+			AvatarURL:   u.AvatarURL,
+			MutualCount: mutualCount,
 		})
 
 		if len(suggestions) >= limit {

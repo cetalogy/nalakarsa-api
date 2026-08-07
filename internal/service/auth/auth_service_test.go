@@ -29,7 +29,6 @@ func (m *mockUserRepository) Create(user *model.User) error {
 		return errors.New("user already exists")
 	}
 	user.ID = uuid.New()
-	user.Profile.UserID = user.ID
 	m.users[user.Email] = user
 	return nil
 }
@@ -51,10 +50,22 @@ func (m *mockUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 	return nil, nil
 }
 
-func (m *mockUserRepository) UpdateProfile(profile *model.Profile) error {
+func (m *mockUserRepository) UpdateProfile(user *model.User) error {
 	for _, u := range m.users {
-		if u.ID == profile.UserID {
-			u.Profile = *profile
+		if u.ID == user.ID {
+			u.FirstName = user.FirstName
+			u.MiddleName = user.MiddleName
+			u.LastName = user.LastName
+			u.FullName = user.FullName
+			u.PrefixTitle = user.PrefixTitle
+			u.SuffixTitle = user.SuffixTitle
+			u.Affiliation = user.Affiliation
+			u.Location = user.Location
+			u.Expertise = user.Expertise
+			u.Industry = user.Industry
+			u.Bio = user.Bio
+			u.Mission = user.Mission
+			u.AvatarURL = user.AvatarURL
 			return nil
 		}
 	}
@@ -64,7 +75,7 @@ func (m *mockUserRepository) UpdateProfile(profile *model.Profile) error {
 func (m *mockUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
 	for _, u := range m.users {
 		if u.ID == userID {
-			u.Profile.AvatarURL = avatarURL
+			u.AvatarURL = avatarURL
 			return nil
 		}
 	}
@@ -109,10 +120,50 @@ func (m *mockUserRepository) DeleteRefreshTokensByUserID(userID uuid.UUID) error
 	return nil
 }
 
+func (m *mockUserRepository) CountActiveRefreshTokens(userID uuid.UUID) (int64, error) {
+	var count int64
+	for _, rt := range m.refreshTokens {
+		if rt.UserID == userID {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (m *mockUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, keepLatest int) error {
+	if keepLatest < 0 {
+		keepLatest = 0
+	}
+
+	// simple strategy: remove all first, then keep the newest by insertion not guaranteed in mock
+	var tokens []*model.RefreshToken
+	for t, rt := range m.refreshTokens {
+		if rt.UserID == userID {
+			_ = t
+			tokens = append(tokens, rt)
+		}
+	}
+
+	if len(tokens) <= keepLatest {
+		return nil
+	}
+
+	removeCount := len(tokens) - keepLatest
+	removed := 0
+	for token, rt := range m.refreshTokens {
+		if rt.UserID == userID && removed < removeCount {
+			delete(m.refreshTokens, token)
+			removed++
+		}
+	}
+
+	return nil
+}
+
 func (m *mockUserRepository) IncrementViewCount(userID uuid.UUID) error {
 	for _, u := range m.users {
 		if u.ID == userID {
-			u.Profile.ViewCount++
+			u.ViewCount++
 			return nil
 		}
 	}
@@ -139,23 +190,25 @@ func TestRegisterAndLogin(t *testing.T) {
 		Email:          "test@nalakarsa.id",
 		Password:       "password123",
 		Role:           "profesional",
-		NamaLengkap:    "Test User",
-		Afiliasi:       "Nalakarsa Lab",
-		Lokasi:         "Indonesia",
-		BidangKeahlian: "Software",
+		FirstName:      "Test",
+		LastName:       "User",
+		FullName:       "Test User",
+		Affiliation:    "Nalakarsa Lab",
+		Location:       "Indonesia",
+		Expertise:      "Software",
 	}
 
-	regRes, err := authServ.Register(regReq)
+	regRes, err := authServ.Register(regReq, nil)
 	if err != nil {
 		t.Fatalf("Expected registration to succeed, got error: %v", err)
 	}
 
-	if regRes.Email != regReq.Email {
-		t.Errorf("Expected registered email %s, got %s", regReq.Email, regRes.Email)
+	if regRes.User.Email != regReq.Email {
+		t.Errorf("Expected registered email %s, got %s", regReq.Email, regRes.User.Email)
 	}
 
 	// Test case 2: Duplicate Registration (Should fail)
-	_, err = authServ.Register(regReq)
+	_, err = authServ.Register(regReq, nil)
 	if err == nil {
 		t.Errorf("Expected duplicate registration to fail, but it succeeded")
 	}
@@ -166,7 +219,7 @@ func TestRegisterAndLogin(t *testing.T) {
 		Password: "password123",
 	}
 
-	loginData, err := authServ.Login(loginReq)
+	loginData, err := authServ.Login(loginReq, nil)
 	if err != nil {
 		t.Fatalf("Expected login to succeed, got error: %v", err)
 	}
@@ -189,7 +242,7 @@ func TestRegisterAndLogin(t *testing.T) {
 		Password: "wrongpassword",
 	}
 
-	_, err = authServ.Login(invalidLoginReq)
+	_, err = authServ.Login(invalidLoginReq, nil)
 	if err == nil {
 		t.Errorf("Expected login with wrong password to fail, but it succeeded")
 	}

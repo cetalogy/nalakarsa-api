@@ -2,6 +2,7 @@ package conversationservice
 
 import (
 	"errors"
+	"strings"
 
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
@@ -13,6 +14,7 @@ import (
 
 type ConversationService interface {
 	GetOrCreateDirect(userID uuid.UUID, req dto.CreateDirectConversationRequest) (*dto.ConversationResponse, error)
+	StartChat(userID uuid.UUID, req dto.StartChatRequest) (*dto.ConversationResponse, error)
 	ListConversations(userID uuid.UUID, page, limit int) ([]dto.ConversationResponse, int64, error)
 	ListMessages(userID uuid.UUID, conversationID uuid.UUID, limit int, cursor string) ([]dto.MessageResponse, bool, error)
 	SendMessage(userID uuid.UUID, conversationID uuid.UUID, req dto.SendMessageRequest) (*dto.MessageResponse, error)
@@ -76,6 +78,49 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	return s.buildConversationResponse(conv, userID)
 }
 
+func (s *conversationService) StartChat(userID uuid.UUID, req dto.StartChatRequest) (*dto.ConversationResponse, error) {
+	targetUserID, err := s.resolveTargetUserID(req.Name, req.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve to explicit direct-conversation target and reuse existing method.
+	return s.GetOrCreateDirect(userID, dto.CreateDirectConversationRequest{
+		TargetUserID: targetUserID,
+	})
+}
+
+// resolveTargetUserID finds a unique active recipient by exact full name and optional role.
+// If zero or multiple matches are found, it returns an explicit error for deterministic behavior.
+func (s *conversationService) resolveTargetUserID(name, role string) (uuid.UUID, error) {
+	cleanName := strings.TrimSpace(name)
+	cleanRole := strings.TrimSpace(role)
+
+	users, _, err := s.userRepo.ListUsers(cleanName, cleanRole, 1, 10)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if len(users) == 0 {
+		return uuid.Nil, errors.New("target user not found")
+	}
+
+	candidates := make([]model.User, 0, len(users))
+	for _, user := range users {
+		if strings.EqualFold(strings.TrimSpace(user.FullName), cleanName) {
+			candidates = append(candidates, user)
+		}
+	}
+
+	switch len(candidates) {
+	case 0:
+		return uuid.Nil, errors.New("target user not found by exact name")
+	case 1:
+		return candidates[0].ID, nil
+	default:
+		return uuid.Nil, errors.New("multiple users found for the provided name and role, use conversations/direct with user id")
+	}
+}
+
 func (s *conversationService) ListConversations(userID uuid.UUID, page, limit int) ([]dto.ConversationResponse, int64, error) {
 	convs, total, err := s.convRepo.ListByUser(userID, page, limit)
 	if err != nil {
@@ -120,12 +165,15 @@ func (s *conversationService) ListMessages(userID uuid.UUID, conversationID uuid
 
 	res := make([]dto.MessageResponse, len(messages))
 	for i, m := range messages {
+		sender := "them"
+		if m.SenderID == userID {
+			sender = "me"
+		}
 		res[i] = dto.MessageResponse{
-			ID:        m.ID,
-			Body:      m.Body,
-			SenderID:  m.SenderID,
-			Status:    m.Status,
-			CreatedAt: m.CreatedAt,
+			ID:     m.ID,
+			Sender: sender,
+			Text:   m.Body,
+			Time:   m.CreatedAt,
 		}
 	}
 
@@ -142,10 +190,14 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 		return nil, errors.New("not a member of this conversation")
 	}
 
+	text := req.Text
+	if text == "" {
+		text = req.Body // fallback
+	}
 	msg := &model.Message{
 		ConversationID: conversationID,
 		SenderID:       userID,
-		Body:           req.Body,
+		Body:           text,
 		Status:         "sent",
 	}
 
@@ -156,12 +208,15 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 	// Update conversation last_message_at
 	_ = s.convRepo.UpdateLastMessageAt(conversationID)
 
+	sender := "them"
+	if msg.SenderID == userID {
+		sender = "me"
+	}
 	return &dto.MessageResponse{
-		ID:        msg.ID,
-		Body:      msg.Body,
-		SenderID:  msg.SenderID,
-		Status:    msg.Status,
-		CreatedAt: msg.CreatedAt,
+		ID:     msg.ID,
+		Sender: sender,
+		Text:   msg.Body,
+		Time:   msg.CreatedAt,
 	}, nil
 }
 
@@ -188,37 +243,28 @@ func (s *conversationService) MarkRead(userID uuid.UUID, conversationID uuid.UUI
 
 func (s *conversationService) buildConversationResponse(conv *model.Conversation, currentUserID uuid.UUID) (*dto.ConversationResponse, error) {
 	// Find the other participant
-	var participant dto.ConversationParticipant
+	var name, role, avatar string
 	for _, m := range conv.Members {
 		if m.UserID != currentUserID {
-			participant = dto.ConversationParticipant{
-				ID:          m.User.ID,
-				NamaLengkap: m.User.Profile.NamaLengkap,
-				Role:        m.User.Role,
-				AvatarURL:   m.User.Profile.AvatarURL,
-			}
+			name = m.User.FullName
+			role = m.User.Role
+			avatar = m.User.AvatarURL
 			break
 		}
 	}
 
 	// Get last message
-	var lastMessage *dto.LastMessageResponse
+	var lastMessageText string
 	messages, err := s.convRepo.ListMessages(conv.ID, 1, "")
 	if err == nil && len(messages) > 0 {
-		lastMessage = &dto.LastMessageResponse{
-			ID:        messages[0].ID,
-			Body:      messages[0].Body,
-			SenderID:  messages[0].SenderID,
-			CreatedAt: messages[0].CreatedAt,
-		}
+		lastMessageText = messages[0].Body
 	}
-
-	unreadCount, _ := s.convRepo.CountUnread(conv.ID, currentUserID)
 
 	return &dto.ConversationResponse{
 		ID:          conv.ID,
-		Participant: participant,
-		LastMessage: lastMessage,
-		UnreadCount: unreadCount,
+		Name:        name,
+		Role:        role,
+		Avatar:      avatar,
+		LastMessage: lastMessageText,
 	}, nil
 }

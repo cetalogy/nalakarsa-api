@@ -71,6 +71,38 @@ func (h *DiscussionHandler) GetByID(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusOK, "Discussion topic retrieved successfully", disc, nil)
 }
 
+func (h *DiscussionHandler) GetReplies(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid discussion ID format")
+		return
+	}
+
+	page, limit := utils.ParsePaginationRequest(c)
+	replies, total, err := h.discService.ListReplies(id, page, limit)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "discussion not found" {
+			statusCode = http.StatusNotFound
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Discussion replies retrieved successfully", replies, &dto.PaginationResponse{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalItems:  total,
+		Limit:       limit,
+	})
+}
+
 func (h *DiscussionHandler) List(c *gin.Context) {
 	search := c.Query("q")
 	if search == "" {
@@ -281,4 +313,40 @@ func (h *DiscussionHandler) Unvote(c *gin.Context) {
 	}
 
 	utils.JSONResponse(c, http.StatusOK, "Upvote removed successfully", nil, nil)
+}
+
+func (h *DiscussionHandler) MarkCollaboration(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	idStr := c.Param("id")
+	discussionID, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid discussion ID format")
+		return
+	}
+
+	if err := h.discService.MarkCollaboration(userID, discussionID); err != nil {
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "discussion not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "unauthorized to update this discussion" {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	// Fetch updated discussion to return as response as per FE request
+	disc, err := h.discService.GetByID(discussionID, &userID)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusOK, "Marked as collaboration", nil, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Discussion marked as collaboration", disc, nil)
 }

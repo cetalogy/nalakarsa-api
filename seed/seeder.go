@@ -14,12 +14,15 @@ func SeedData(db *gorm.DB) error {
 
 	// 1. Clear existing data
 	log.Println("Purging existing data...")
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageSection{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageHero{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageTestimonial{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ProjectApplication{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Project{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.DiscussionReply{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Discussion{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.RefreshToken{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Profile{})
+
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.User{})
 
 	hashedPassword, err := utils.HashPassword("password123")
@@ -34,17 +37,17 @@ func SeedData(db *gorm.DB) error {
 		Role:         "akademisi",
 		SystemRole:   "user",
 		Status:       "active",
-		Profile: model.Profile{
-			NamaLengkap:    "Dr. Ir. Budi Santoso",
-			GelarDepan:     "Dr.",
-			GelarBelakang:  "M.T.",
-			Afiliasi:       "Universitas Indonesia",
-			Lokasi:         "Depok, Indonesia",
-			BidangKeahlian: "Internet of Things & AI",
-			Bio:            "Peneliti bidang IoT.",
-			Mission:        "Melakukan penelitian terapan dan mencari mitra industrialisasi.",
-			AvatarURL:      "https://api.dicebear.com/7.x/adventurer/svg?seed=budi",
-		},
+		FirstName:   "Budi",
+		LastName:    "Santoso",
+		FullName:    "Dr. Ir. Budi Santoso",
+		PrefixTitle: "Dr. Ir.",
+		SuffixTitle: "",
+		Affiliation: "Universitas Indonesia",
+		Location:    "Jakarta",
+		Expertise:   "Kecerdasan Buatan, Machine Learning",
+		Bio:         "Peneliti bidang IoT.",
+		Mission:     "Melakukan penelitian terapan dan mencari mitra industrialisasi.",
+		AvatarURL:   "https://api.dicebear.com/7.x/adventurer/svg?seed=budi",
 	}
 
 	praktisiUser := &model.User{
@@ -53,17 +56,17 @@ func SeedData(db *gorm.DB) error {
 		Role:         "praktisi",
 		SystemRole:   "user",
 		Status:       "active",
-		Profile: model.Profile{
-			NamaLengkap:    "Hendra Wijaya",
-			GelarDepan:     "",
-			GelarBelakang:  "B.Com.",
-			Afiliasi:       "PT Tani Maju Digital",
-			Lokasi:         "Jakarta, Indonesia",
-			BidangKeahlian: "Agribisnis & Investasi",
-			Bio:            "Pengusaha pertanian digital.",
-			Mission:        "Mendukung otomatisasi pertanian menggunakan teknologi hasil riset.",
-			AvatarURL:      "https://api.dicebear.com/7.x/adventurer/svg?seed=hendra",
-		},
+		FirstName:   "Setyo",
+		LastName:    "Nugroho",
+		FullName:    "Setyo Nugroho",
+		PrefixTitle: "",
+		SuffixTitle: "",
+		Affiliation: "PT Telkom Indonesia",
+		Location:    "Surabaya",
+		Expertise:   "Data Science, Big Data Analytics",
+		Bio:         "Pengusaha pertanian digital.",
+		Mission:     "Mendukung otomatisasi pertanian menggunakan teknologi hasil riset.",
+		AvatarURL:   "https://api.dicebear.com/7.x/adventurer/svg?seed=hendra",
 	}
 
 	profesionalUser := &model.User{
@@ -72,17 +75,17 @@ func SeedData(db *gorm.DB) error {
 		Role:         "profesional",
 		SystemRole:   "user",
 		Status:       "active",
-		Profile: model.Profile{
-			NamaLengkap:    "Setyo Nugroho",
-			GelarDepan:     "",
-			GelarBelakang:  "S.Kom.",
-			Afiliasi:       "Freelance Software Architect",
-			Lokasi:         "Bandung, Indonesia",
-			BidangKeahlian: "Go, Kubernetes, Cloud Architecture",
-			Bio:            "Software Engineer spesialis backend.",
-			Mission:        "Menyediakan solusi backend handal skala besar.",
-			AvatarURL:      "https://api.dicebear.com/7.x/adventurer/svg?seed=setyo",
-		},
+		FirstName:   "Hendra",
+		LastName:    "Wijaya",
+		FullName:    "Hendra Wijaya",
+		PrefixTitle: "",
+		SuffixTitle: "",
+		Affiliation: "Tech Startup Indonesia",
+		Location:    "Bandung",
+		Expertise:   "Software Engineering, Cloud Architecture",
+		Bio:         "Software Engineer spesialis backend.",
+		Mission:     "Menyediakan solusi backend handal skala besar.",
+		AvatarURL:   "https://api.dicebear.com/7.x/adventurer/svg?seed=setyo",
 	}
 
 	if err := db.Create(akademisiUser).Error; err != nil {
@@ -97,21 +100,21 @@ func SeedData(db *gorm.DB) error {
 
 	// 3. Create Discussion Topics
 	disc1 := &model.Discussion{
-		UserID:   profesionalUser.ID,
-		Title:    "Mengapa Golang Sangat Cocok untuk Microservices?",
-		Content:  "Dalam ekosistem Nalakarsa, saya ingin berdiskusi mengenai konkurensi di Go. Goroutines dan Channels membuat pemrosesan paralel menjadi sangat efisien dibandingkan thread konvensional. Bagaimana pengalaman rekan-rekan?",
-		Category: "Tech",
-		Tags:     "golang,microservices,backend",
-		Status:   "open",
+		UserID:      profesionalUser.ID,
+		Title:       "Mengapa Golang Sangat Cocok untuk Microservices?",
+		Description: "Dalam ekosistem Nalakarsa, saya ingin berdiskusi mengenai konkurensi di Go. Goroutines dan Channels membuat pemrosesan paralel menjadi sangat efisien dibandingkan thread konvensional. Bagaimana pengalaman rekan-rekan?",
+		Category:    "Tech",
+		Tags:        "golang,microservices,backend",
+		Status:      "open",
 	}
 
 	disc2 := &model.Discussion{
-		UserID:   akademisiUser.ID,
-		Title:    "Hilirisasi Hasil Riset Universitas ke Sektor Industri",
-		Content:  "Banyak prototipe riset IoT terhenti di laci laboratorium. Kendala utama adalah kurangnya komunikasi dengan pelaku bisnis. Mari kita bahas bagaimana menjembatani gap ini.",
-		Category: "Research",
-		Tags:     "riset,industri,hilirisasi",
-		Status:   "open",
+		UserID:      akademisiUser.ID,
+		Title:       "Hilirisasi Hasil Riset Universitas ke Sektor Industri",
+		Description: "Banyak prototipe riset IoT terhenti di laci laboratorium. Kendala utama adalah kurangnya komunikasi dengan pelaku bisnis. Mari kita bahas bagaimana menjembatani gap ini.",
+		Category:    "Research",
+		Tags:        "riset,industri,hilirisasi",
+		Status:      "open",
 	}
 
 	if err := db.Create(disc1).Error; err != nil {
@@ -147,7 +150,7 @@ func SeedData(db *gorm.DB) error {
 		Title:         "Pengembangan Lapangan Sistem IoT Monitoring Tanah Pertanian",
 		Description:   "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
 		Category:      "Research",
-		RoleRequired:  "praktisi",
+		Needs:         "praktisi",
 		Status:        "open",
 		FundingStatus: "Self-funded",
 		Location:      "Bogor",
@@ -166,6 +169,68 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	if err := db.Create(app).Error; err != nil {
+		return err
+	}
+
+	// 7. Seed Homepage landing content
+	hero := &model.HomepageHero{
+		Headline:     "Kolaborasi Riset jadi Solusi Nyata",
+		SubHeadline:  "Temukan akademisi, praktisi, dan profesional untuk mendorong riset yang berdampak.",
+		CallToAction: "Jelajahi Diskusi",
+		CTAURL:       "/discussions",
+		ImageURL:     "/assets/homepage/hero.jpg",
+		IsActive:     true,
+	}
+
+	sections := []model.HomepageSection{
+		{
+			Key:       "benefits",
+			Title:     "Mengapa Nalakarsa?",
+			Subtitle:  "Platform penghubung ekosistem riset dan industri.",
+			Content:   "Temukan kolaborasi lintas peran untuk mengubah ide riset menjadi implementasi nyata.",
+			ImageURL:  "/assets/homepage/benefits.jpg",
+			SortOrder: 1,
+			IsActive:  true,
+		},
+		{
+			Key:       "highlights",
+			Title:     "Proyek & Kolaborasi",
+			Subtitle:  "Akses peluang yang relevan.",
+			Content:   "Lihat proyek, ikuti diskusi, dan bangun koneksi yang membantu kemajuan industri.",
+			ImageURL:  "/assets/homepage/highlights.jpg",
+			SortOrder: 2,
+			IsActive:  true,
+		},
+	}
+
+	testimonials := []model.HomepageTestimonial{
+		{
+			Name:      "Dr. Raka Santoso",
+			Role:      "Dosen",
+			Company:   "Universitas Teknologi Nusantara",
+			Message:   "Nalakarsa membantu saya menemukan mitra untuk mengimplementasikan riset ke pilot project.",
+			AvatarURL: "/assets/testimonials/raka.jpg",
+			IsActive:  true,
+			SortOrder: 1,
+		},
+		{
+			Name:      "Sari Wijaya",
+			Role:      "Praktisi",
+			Company:   "AgriTech Indonesia",
+			Message:   "Kolaborasi jadi lebih cepat karena diskusi dan proyek terstruktur dalam satu platform.",
+			AvatarURL: "/assets/testimonials/sari.jpg",
+			IsActive:  true,
+			SortOrder: 2,
+		},
+	}
+
+	if err := db.Create(hero).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&sections).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&testimonials).Error; err != nil {
 		return err
 	}
 
