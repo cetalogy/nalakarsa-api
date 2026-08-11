@@ -1,5 +1,6 @@
 # Stage 1: Build the Go application
-FROM golang:1.22-alpine AS builder
+# FROM golang:1.22-alpine AS builder
+FROM golang:1.26
 
 # Install build dependencies
 RUN apk add --no-cache git
