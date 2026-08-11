@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"nalakarsa/internal/config"
@@ -24,12 +25,30 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		cfg.DBTimeZone,
 	)
 
-	gormConfig := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	}
+	dbLogger := logger.New(
+		log.New(os.Stdout, "", 0),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError:  true,
+			Colorful:                  true,
+		},
+	)
 
 	if cfg.Env == "production" {
-		gormConfig.Logger = logger.Default.LogMode(logger.Error)
+		dbLogger = logger.New(
+			log.New(os.Stdout, "", 0),
+			logger.Config{
+				SlowThreshold:             200 * time.Millisecond,
+				LogLevel:                  logger.Warn,
+				IgnoreRecordNotFoundError:  true,
+				Colorful:                  false,
+			},
+		)
+	}
+
+	gormConfig := &gorm.Config{
+		Logger: dbLogger,
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
