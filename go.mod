@@ -1,6 +1,7 @@
 module nalakarsa
 
-go 1.26.2
+<!-- go 1.26.2 -->
+go 1.23
 
 require (
 	firebase.google.com/go/v4 v4.21.0
