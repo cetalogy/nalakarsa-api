@@ -18,14 +18,14 @@ func JSONResponse(c *gin.Context, statusCode int, message string, data interface
 	})
 }
 
-// ErrorJSONResponse sends an error JSON response with error code and optional field errors:
-// { "error": { "code": "...", "message": "...", "fields": { ... } } }
-func ErrorJSONResponse(c *gin.Context, statusCode int, code string, message string, fields map[string]string) {
+// ErrorJSONResponse sends an error JSON response with error code and optional details:
+// { "error": { "code": "...", "message": "...", "details": { ... } } }
+func ErrorJSONResponse(c *gin.Context, statusCode int, code string, message string, details map[string]string) {
 	c.JSON(statusCode, dto.APIErrorResponse{
 		Error: dto.APIErrorDetail{
 			Code:    code,
 			Message: message,
-			Fields:  fields,
+			Details: details,
 		},
 	})
 }
@@ -50,9 +50,9 @@ func ErrorJSONResponseWithMessage(c *gin.Context, statusCode int, message string
 	ErrorJSONResponse(c, statusCode, code, message, nil)
 }
 
-// ValidationErrorResponse sends a validation error response with per-field errors
-func ValidationErrorResponse(c *gin.Context, fields map[string]string) {
-	ErrorJSONResponse(c, 400, "VALIDATION_ERROR", "Data tidak valid", fields)
+// ValidationErrorResponse sends a validation error response with per-field details
+func ValidationErrorResponse(c *gin.Context, details map[string]string) {
+	ErrorJSONResponse(c, 400, "VALIDATION_ERROR", "Data tidak valid", details)
 }
 
 // ParsePaginationRequest helper to parse page and limit queries

@@ -12,4 +12,10 @@ func RegisterRoutes(protected *gin.RouterGroup, h *conversationhandler.Conversat
 	protected.GET("/conversations/:id/messages", h.ListMessages)
 	protected.POST("/conversations/:id/messages", h.SendMessage)
 	protected.PATCH("/conversations/:id/read", h.MarkRead)
+
+	// Aliases for /chat (FE requirement)
+	protected.GET("/chat/contacts", h.ListConversations)
+	protected.POST("/chat/start", h.StartChat)
+	protected.GET("/chat/contacts/:id/messages", h.ListMessages)
+	protected.POST("/chat/contacts/:id/messages", h.SendMessage)
 }

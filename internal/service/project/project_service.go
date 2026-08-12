@@ -6,6 +6,7 @@ import (
 
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
+	discussionrepository "nalakarsa/internal/repository/discussion"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -14,6 +15,7 @@ import (
 
 type ProjectService interface {
 	Create(userID uuid.UUID, req dto.CreateProjectRequest) (uuid.UUID, error)
+	CreateFromDiscussion(userID uuid.UUID, discussionID uuid.UUID) (uuid.UUID, error)
 	GetByID(id uuid.UUID) (*dto.ProjectDetailResponse, error)
 	List(search, status, category string, page, limit int) ([]dto.ProjectResponse, int64, error)
 	Update(userID uuid.UUID, id uuid.UUID, req dto.UpdateProjectRequest) error
@@ -29,10 +31,11 @@ type ProjectService interface {
 type projectService struct {
 	projRepo projectrepository.ProjectRepository
 	userRepo userrepository.UserRepository
+	discRepo discussionrepository.DiscussionRepository
 }
 
-func NewProjectService(projRepo projectrepository.ProjectRepository, userRepo userrepository.UserRepository) ProjectService {
-	return &projectService{projRepo: projRepo, userRepo: userRepo}
+func NewProjectService(projRepo projectrepository.ProjectRepository, userRepo userrepository.UserRepository, discRepo discussionrepository.DiscussionRepository) ProjectService {
+	return &projectService{projRepo: projRepo, userRepo: userRepo, discRepo: discRepo}
 }
 
 func (s *projectService) Create(userID uuid.UUID, req dto.CreateProjectRequest) (uuid.UUID, error) {
@@ -42,11 +45,40 @@ func (s *projectService) Create(userID uuid.UUID, req dto.CreateProjectRequest) 
 		Description:   req.Description,
 		Category:      req.Category,
 		Status:        "draft",
-		RoleRequired:  req.RoleRequired,
+		Needs:  req.Needs,
 		FundingStatus: req.FundingStatus,
 		Location:      req.Location,
 		Deadline:      req.Deadline,
 		Progress:      0,
+	}
+
+	if err := s.projRepo.Create(project); err != nil {
+		return uuid.Nil, err
+	}
+
+	return project.ID, nil
+}
+
+func (s *projectService) CreateFromDiscussion(userID uuid.UUID, discussionID uuid.UUID) (uuid.UUID, error) {
+	disc, err := s.discRepo.GetByID(discussionID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if disc == nil {
+		return uuid.Nil, errors.New("discussion not found")
+	}
+
+	project := &model.Project{
+		OwnerID:       userID,
+		Title:         disc.Title,
+		Description:   disc.Description,
+		Category:      disc.Category,
+		Status:        "draft",
+		Needs:       "Praktisi", // Default or map it somehow
+		FundingStatus:      "Belum Ada",
+		Location:           "Remote",
+		Progress:           0,
+		SourceDiscussionID: &discussionID,
 	}
 
 	if err := s.projRepo.Create(project); err != nil {
@@ -70,11 +102,11 @@ func (s *projectService) GetByID(id uuid.UUID) (*dto.ProjectDetailResponse, erro
 		members[i] = dto.ProjectMemberResponse{
 			ID:          m.ID,
 			UserID:      m.UserID,
-			NamaLengkap: m.User.Profile.NamaLengkap,
+			FullName:    m.User.FullName,
 			Role:        m.Role,
 			Status:      m.Status,
 			JoinedAt:    m.JoinedAt,
-			AvatarURL:   m.User.Profile.AvatarURL,
+			AvatarURL:   m.User.AvatarURL,
 		}
 	}
 
@@ -129,7 +161,7 @@ func (s *projectService) Update(userID uuid.UUID, id uuid.UUID, req dto.UpdatePr
 	project.Description = req.Description
 	project.Category = req.Category
 	project.Status = req.Status
-	project.RoleRequired = req.RoleRequired
+	project.Needs = req.Needs
 	project.FundingStatus = req.FundingStatus
 	project.Location = req.Location
 	project.Deadline = req.Deadline
@@ -214,11 +246,11 @@ func (s *projectService) ListApplications(userID uuid.UUID, projectID uuid.UUID)
 			CreatedAt: a.CreatedAt,
 			Applicant: dto.ApplicantResponse{
 				ID:          a.Applicant.ID,
-				NamaLengkap: a.Applicant.Profile.NamaLengkap,
+				FullName:    a.Applicant.FullName,
 				Role:        a.Applicant.Role,
-				Afiliasi:    a.Applicant.Profile.Afiliasi,
-				Lokasi:      a.Applicant.Profile.Lokasi,
-				AvatarURL:   a.Applicant.Profile.AvatarURL,
+				Afiliasi:    a.Applicant.Affiliation,
+				Lokasi:      a.Applicant.Location,
+				AvatarURL:   a.Applicant.AvatarURL,
 			},
 		}
 	}
@@ -279,11 +311,11 @@ func (s *projectService) ListMembers(projectID uuid.UUID) ([]dto.ProjectMemberRe
 		res[i] = dto.ProjectMemberResponse{
 			ID:          m.ID,
 			UserID:      m.UserID,
-			NamaLengkap: m.User.Profile.NamaLengkap,
+			FullName:    m.User.FullName,
 			Role:        m.Role,
 			Status:      m.Status,
 			JoinedAt:    m.JoinedAt,
-			AvatarURL:   m.User.Profile.AvatarURL,
+			AvatarURL:   m.User.AvatarURL,
 		}
 	}
 
@@ -354,23 +386,18 @@ func (s *projectService) UpdateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 
 func toProjectResponse(p *model.Project) dto.ProjectResponse {
 	return dto.ProjectResponse{
-		ID:            p.ID,
-		Title:         p.Title,
-		Description:   p.Description,
-		Category:      p.Category,
-		Status:        p.Status,
-		RoleRequired:  p.RoleRequired,
-		FundingStatus: p.FundingStatus,
-		Location:      p.Location,
-		Deadline:      p.Deadline,
-		Progress:      p.Progress,
-		CreatedAt:     p.CreatedAt,
-		Owner: dto.ProjectOwner{
-			ID:          p.Owner.ID,
-			NamaLengkap: p.Owner.Profile.NamaLengkap,
-			Role:        p.Owner.Role,
-			Afiliasi:    p.Owner.Profile.Afiliasi,
-			AvatarURL:   p.Owner.Profile.AvatarURL,
-		},
+		ID:                 p.ID,
+		Title:              p.Title,
+		Description:        p.Description,
+		Category:           p.Category,
+		Status:             p.Status,
+		Needs:              p.Needs,
+		FundingStatus:      p.FundingStatus,
+		Location:           p.Location,
+		Deadline:           p.Deadline,
+		Progress:           p.Progress,
+		CreatedAt:          p.CreatedAt,
+		Initiator:          p.Owner.FullName,
+		SourceDiscussionID: p.SourceDiscussionID,
 	}
 }

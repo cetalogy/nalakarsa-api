@@ -18,9 +18,11 @@ type DiscussionService interface {
 	Update(userID uuid.UUID, id uuid.UUID, req dto.UpdateDiscussionRequest) error
 	Delete(userID uuid.UUID, id uuid.UUID) error
 	AddReply(userID uuid.UUID, discussionID uuid.UUID, req dto.CreateReplyRequest) (*dto.DiscussionReplyResponse, error)
+	ListReplies(discussionID uuid.UUID, page, limit int) ([]dto.DiscussionReplyResponse, int64, error)
 	DeleteReply(userID uuid.UUID, replyID uuid.UUID) error
 	Vote(userID uuid.UUID, discussionID uuid.UUID) error
 	Unvote(userID uuid.UUID, discussionID uuid.UUID) error
+	MarkCollaboration(userID uuid.UUID, id uuid.UUID) error
 }
 
 type discussionService struct {
@@ -36,7 +38,7 @@ func (s *discussionService) Create(userID uuid.UUID, req dto.CreateDiscussionReq
 	disc := &model.Discussion{
 		UserID:   userID,
 		Title:    req.Title,
-		Content:  req.Content,
+		Description: req.Description,
 		Category: req.Category,
 		Tags:     req.Tags,
 		Status:   "open",
@@ -58,22 +60,6 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 		return nil, errors.New("discussion not found")
 	}
 
-	repliesRes := make([]dto.DiscussionReplyResponse, len(disc.Replies))
-	for i, r := range disc.Replies {
-		repliesRes[i] = dto.DiscussionReplyResponse{
-			ID:        r.ID,
-			Content:   r.Content,
-			ParentID:  r.ParentID,
-			CreatedAt: r.CreatedAt,
-			Creator: dto.DiscussionCreator{
-				ID:          r.User.ID,
-				NamaLengkap: r.User.Profile.NamaLengkap,
-				Role:        r.User.Role,
-				AvatarURL:   r.User.Profile.AvatarURL,
-			},
-		}
-	}
-
 	replyCount, _ := s.discRepo.CountReplies(id)
 	upvoteCount, _ := s.discRepo.CountVotes(id)
 
@@ -83,24 +69,55 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 	}
 
 	return &dto.DiscussionDetailResponse{
-		ID:          disc.ID,
-		Title:       disc.Title,
-		Content:     disc.Content,
-		Category:    disc.Category,
-		Tags:        disc.Tags,
-		Status:      disc.Status,
-		ReplyCount:  replyCount,
-		UpvoteCount: upvoteCount,
-		HasUpvoted:  hasUpvoted,
-		CreatedAt:   disc.CreatedAt,
+		ID:                 disc.ID,
+		Title:              disc.Title,
+		Description:        disc.Description,
+		Category:           disc.Category,
+		Tags:               disc.Tags,
+		Status:             disc.Status,
+		IsInCollaboration:  disc.IsInCollaboration,
+		Replies:            replyCount,
+		UpvoteCount:        upvoteCount,
+		HasUpvoted:         hasUpvoted,
+		Time:               disc.CreatedAt,
+		Author:             disc.User.FullName,
+		Role:               disc.User.Role,
+		SourceDiscussionID: disc.SourceDiscussionID,
 		Creator: dto.DiscussionCreator{
-			ID:          disc.User.ID,
-			NamaLengkap: disc.User.Profile.NamaLengkap,
-			Role:        disc.User.Role,
-			AvatarURL:   disc.User.Profile.AvatarURL,
+			ID:        disc.User.ID,
+			FullName:  disc.User.FullName,
+			Role:      disc.User.Role,
+			AvatarURL: disc.User.AvatarURL,
 		},
-		Replies: repliesRes,
+		RepliesList: s.toDiscussionReplyResponses(disc.Replies),
 	}, nil
+}
+
+func (s *discussionService) ListReplies(discussionID uuid.UUID, page, limit int) ([]dto.DiscussionReplyResponse, int64, error) {
+	disc, err := s.discRepo.GetByID(discussionID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if disc == nil {
+		return nil, 0, errors.New("discussion not found")
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	replies, total, err := s.discRepo.ListReplies(discussionID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return s.toDiscussionReplyResponses(replies), total, nil
 }
 
 func (s *discussionService) List(search, category, role, sort string, page, limit int, currentUserID *uuid.UUID) ([]dto.DiscussionResponse, int64, error) {
@@ -120,22 +137,20 @@ func (s *discussionService) List(search, category, role, sort string, page, limi
 		}
 
 		res[i] = dto.DiscussionResponse{
-			ID:          d.ID,
-			Title:       d.Title,
-			Content:     d.Content,
-			Category:    d.Category,
-			Tags:        d.Tags,
-			Status:      d.Status,
-			ReplyCount:  replyCount,
-			UpvoteCount: upvoteCount,
-			HasUpvoted:  hasUpvoted,
-			CreatedAt:   d.CreatedAt,
-			Creator: dto.DiscussionCreator{
-				ID:          d.User.ID,
-				NamaLengkap: d.User.Profile.NamaLengkap,
-				Role:        d.User.Role,
-				AvatarURL:   d.User.Profile.AvatarURL,
-			},
+			ID:                 d.ID,
+			Title:              d.Title,
+			Description:        d.Description,
+			Category:           d.Category,
+			Tags:               d.Tags,
+			Status:             d.Status,
+			IsInCollaboration:  d.IsInCollaboration,
+			Replies:            replyCount,
+			UpvoteCount:        upvoteCount,
+			HasUpvoted:         hasUpvoted,
+			Time:               d.CreatedAt,
+			Author:             d.User.FullName,
+			Role:               d.User.Role,
+			SourceDiscussionID: d.SourceDiscussionID,
 		}
 	}
 
@@ -157,7 +172,7 @@ func (s *discussionService) Update(userID uuid.UUID, id uuid.UUID, req dto.Updat
 	}
 
 	disc.Title = req.Title
-	disc.Content = req.Content
+	disc.Description = req.Description
 	disc.Category = req.Category
 	disc.Tags = req.Tags
 	if req.Status != "" {
@@ -217,10 +232,10 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 		ParentID:  reply.ParentID,
 		CreatedAt: reply.CreatedAt,
 		Creator: dto.DiscussionCreator{
-			ID:          user.ID,
-			NamaLengkap: user.Profile.NamaLengkap,
-			Role:        user.Role,
-			AvatarURL:   user.Profile.AvatarURL,
+			ID:        user.ID,
+			FullName:  user.FullName,
+			Role:      user.Role,
+			AvatarURL: user.AvatarURL,
 		},
 	}, nil
 }
@@ -246,6 +261,29 @@ func (s *discussionService) DeleteReply(userID uuid.UUID, replyID uuid.UUID) err
 	}
 
 	return s.discRepo.DeleteReply(replyID)
+}
+
+func (s *discussionService) toDiscussionReplyResponse(r model.DiscussionReply) dto.DiscussionReplyResponse {
+	return dto.DiscussionReplyResponse{
+		ID:        r.ID,
+		Content:   r.Content,
+		ParentID:  r.ParentID,
+		CreatedAt: r.CreatedAt,
+		Creator: dto.DiscussionCreator{
+			ID:        r.User.ID,
+			FullName:  r.User.FullName,
+			Role:      r.User.Role,
+			AvatarURL: r.User.AvatarURL,
+		},
+	}
+}
+
+func (s *discussionService) toDiscussionReplyResponses(replies []model.DiscussionReply) []dto.DiscussionReplyResponse {
+	res := make([]dto.DiscussionReplyResponse, len(replies))
+	for i, r := range replies {
+		res[i] = s.toDiscussionReplyResponse(r)
+	}
+	return res
 }
 
 func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error {
@@ -277,4 +315,22 @@ func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error
 
 func (s *discussionService) Unvote(userID uuid.UUID, discussionID uuid.UUID) error {
 	return s.discRepo.DeleteVote(userID, discussionID)
+}
+
+func (s *discussionService) MarkCollaboration(userID uuid.UUID, id uuid.UUID) error {
+	disc, err := s.discRepo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if disc == nil {
+		return errors.New("discussion not found")
+	}
+
+	// Auth check: only owner can mark as collaboration
+	if disc.UserID != userID {
+		return errors.New("unauthorized to update this discussion")
+	}
+
+	disc.IsInCollaboration = true
+	return s.discRepo.Update(disc)
 }

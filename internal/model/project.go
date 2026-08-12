@@ -18,11 +18,12 @@ type Project struct {
 	Status        string         `gorm:"type:varchar(20);index;default:'draft';not null"` // draft, open, in_review, active, completed, archived
 	FundingStatus string         `gorm:"type:varchar(50);default:'';not null"`
 	Location      string         `gorm:"type:varchar(255);default:'';not null"`
-	RoleRequired  string         `gorm:"type:varchar(50);default:'';not null"` // akademisi, praktisi, profesional
-	Deadline      *time.Time     `gorm:"type:timestamptz"`
-	Progress      int            `gorm:"type:int;default:0;not null"` // 0-100
-	CreatedAt     time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
-	UpdatedAt     time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	Needs         string         `gorm:"type:varchar(50);default:'';not null"` // akademisi, praktisi, profesional
+	Deadline           *time.Time     `gorm:"type:timestamptz"`
+	Progress           int            `gorm:"type:int;default:0;not null"` // 0-100
+	SourceDiscussionID *uuid.UUID     `gorm:"type:uuid"`
+	CreatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	UpdatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt     gorm.DeletedAt `gorm:"index"`
 
 	// Relations
