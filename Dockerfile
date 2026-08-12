@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -12,7 +12,7 @@ COPY . .
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /app/main ./cmd/api
+    go build -trimpath -ldflags="-s -w" -o /app/main .
 
 FROM alpine:latest
 
