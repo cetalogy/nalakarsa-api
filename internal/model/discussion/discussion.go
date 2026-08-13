@@ -19,6 +19,8 @@ type Discussion struct {
 	Status             string         `gorm:"type:varchar(20);index;default:'open';not null"` // open, resolved, closed
 	IsInCollaboration  bool           `gorm:"default:false;not null"`
 	SourceDiscussionID *uuid.UUID     `gorm:"type:uuid;index"`
+	RepliesCount       int64          `gorm:"default:0;not null"`
+	UpvoteCount        int64          `gorm:"default:0;not null"`
 	CreatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt          gorm.DeletedAt `gorm:"index"`

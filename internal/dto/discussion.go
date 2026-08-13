@@ -7,18 +7,34 @@ import (
 )
 
 type CreateDiscussionRequest struct {
-	Title    string `json:"title" binding:"required,min=5"`
-	Description string `json:"description" binding:"required,min=10"`
-	Category string `json:"category" binding:"required"`
-	Tags     string `json:"tags"`
+	Title       string `json:"title" binding:"required,min=5"`
+	Description string `json:"description"`
+	Excerpt     string `json:"excerpt"`
+	Category    string `json:"category" binding:"required"`
+	Tags        string `json:"tags"`
+}
+
+func (r *CreateDiscussionRequest) GetDescription() string {
+	if r.Description != "" {
+		return r.Description
+	}
+	return r.Excerpt
 }
 
 type UpdateDiscussionRequest struct {
-	Title    string `json:"title" binding:"required,min=5"`
-	Description string `json:"description" binding:"required,min=10"`
-	Category string `json:"category" binding:"required"`
-	Tags     string `json:"tags"`
-	Status   string `json:"status" binding:"omitempty,oneof=open resolved closed"`
+	Title       string `json:"title" binding:"required,min=5"`
+	Description string `json:"description"`
+	Excerpt     string `json:"excerpt"`
+	Category    string `json:"category" binding:"required"`
+	Tags        string `json:"tags"`
+	Status      string `json:"status" binding:"omitempty,oneof=open resolved closed"`
+}
+
+func (r *UpdateDiscussionRequest) GetDescription() string {
+	if r.Description != "" {
+		return r.Description
+	}
+	return r.Excerpt
 }
 
 type DiscussionCreator struct {
@@ -36,10 +52,18 @@ type DiscussionReplyResponse struct {
 	Creator   DiscussionCreator `json:"creator"`
 }
 
+type DiscussionRepliesData struct {
+	DiscussionID uuid.UUID                 `json:"discussion_id"`
+	TopicTitle   string                    `json:"topic_title"`
+	TotalReplies int64                     `json:"total_replies"`
+	Replies      []DiscussionReplyResponse `json:"replies"`
+}
+
 type DiscussionResponse struct {
 	ID                 uuid.UUID  `json:"id"`
 	Title              string     `json:"title"`
 	Description        string     `json:"description"`
+	Excerpt            string     `json:"excerpt,omitempty"`
 	Category           string     `json:"category"`
 	Tags               string     `json:"tags"`
 	Status             string     `json:"status"`
@@ -48,6 +72,7 @@ type DiscussionResponse struct {
 	UpvoteCount        int64      `json:"upvote_count"`
 	HasUpvoted         bool       `json:"has_upvoted"`
 	Time               time.Time  `json:"time"`
+	CreatedAt          time.Time  `json:"createdAt"`
 	Author             string     `json:"author"`
 	Role               string     `json:"role"`
 	SourceDiscussionID *uuid.UUID `json:"sourceDiscussionId"`
@@ -57,6 +82,7 @@ type DiscussionDetailResponse struct {
 	ID                 uuid.UUID                 `json:"id"`
 	Title              string                    `json:"title"`
 	Description        string                    `json:"description"`
+	Excerpt            string                    `json:"excerpt,omitempty"`
 	Category           string                    `json:"category"`
 	Tags               string                    `json:"tags"`
 	Status             string                    `json:"status"`
@@ -65,6 +91,7 @@ type DiscussionDetailResponse struct {
 	UpvoteCount        int64                     `json:"upvote_count"`
 	HasUpvoted         bool                      `json:"has_upvoted"`
 	Time               time.Time                 `json:"time"`
+	CreatedAt          time.Time                 `json:"createdAt"`
 	Author             string                    `json:"author"`
 	Role               string                    `json:"role"`
 	SourceDiscussionID *uuid.UUID                `json:"sourceDiscussionId"`

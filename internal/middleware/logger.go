@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -29,18 +30,109 @@ func LoggerMiddleware(cfg *config.Config) gin.HandlerFunc {
 		latency := time.Since(start)
 		method := c.Request.Method
 		statusCode := c.Writer.Status()
+		clientIP := c.ClientIP()
 
 		if raw != "" {
 			path = path + "?" + raw
 		}
 
+		transactionName := resolveTransactionName(method, path)
 		latencyLabel := formatLatency(latency)
 		level := resolveLogLevel(statusCode)
 		methodLabel := colorMethod(method, isDevelopment)
-		statusLabel := colorStatus(statusCode, isDevelopment)
+		statusText := http.StatusText(statusCode)
+		if statusText == "" {
+			statusText = "Unknown Status"
+		}
+		statusLabel := colorStatus(statusCode, isDevelopment) + " " + statusText
 
-		message := fmt.Sprintf("%s %s %s (%s)", methodLabel, path, statusLabel, latencyLabel)
+		// Inject User information if authenticated
+		userInfo := ""
+		if email, exists := c.Get("email"); exists {
+			userInfo = fmt.Sprintf(" | User: %v", email)
+		} else if userID, exists := c.Get("user_id"); exists {
+			userInfo = fmt.Sprintf(" | UserID: %v", userID)
+		}
+
+		message := fmt.Sprintf("%s %s %s -> %s (%s) | Client: %s%s",
+			transactionName,
+			methodLabel,
+			path,
+			statusLabel,
+			latencyLabel,
+			clientIP,
+			userInfo,
+		)
 		logger.Log(c.Request.Context(), level, message)
+	}
+}
+
+func resolveTransactionName(method, path string) string {
+	method = strings.ToUpper(method)
+	cleanPath := path
+	if idx := strings.Index(cleanPath, "?"); idx != -1 {
+		cleanPath = cleanPath[:idx]
+	}
+
+	switch {
+	// Auth Module
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/login"):
+		return "[USER LOGIN]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/register"):
+		return "[USER REGISTER]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/refresh"):
+		return "[REFRESH TOKEN]"
+	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/auth/me"):
+		return "[GET CURRENT USER]"
+
+	// Discussion Module
+	case method == "POST" && strings.Contains(cleanPath, "/collaboration"):
+		return "[MARK COLLABORATION]"
+	case method == "POST" && strings.Contains(cleanPath, "/votes"):
+		return "[UPVOTE DISCUSSION]"
+	case method == "DELETE" && strings.Contains(cleanPath, "/votes"):
+		return "[UNVOTE DISCUSSION]"
+	case method == "POST" && strings.Contains(cleanPath, "/replies"):
+		return "[ADD REPLY]"
+	case method == "DELETE" && strings.Contains(cleanPath, "/replies"):
+		return "[DELETE REPLY]"
+	case method == "GET" && strings.Contains(cleanPath, "/replies"):
+		return "[GET REPLIES]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/discussions"):
+		return "[CREATE DISCUSSION]"
+	case method == "PATCH" && strings.HasPrefix(cleanPath, "/api/v1/discussions"):
+		return "[UPDATE DISCUSSION]"
+	case method == "DELETE" && strings.HasPrefix(cleanPath, "/api/v1/discussions"):
+		return "[DELETE DISCUSSION]"
+	case method == "GET" && cleanPath == "/api/v1/discussions":
+		return "[LIST DISCUSSIONS]"
+	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/discussions/"):
+		return "[GET DISCUSSION DETAIL]"
+
+	// Project Module
+	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/projects"):
+		return "[PROJECT SERVICE]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/projects"):
+		return "[CREATE PROJECT]"
+
+	// User / Connection / Conversation / Notification / Homepage
+	case strings.HasPrefix(cleanPath, "/api/v1/users"):
+		return "[USER PROFILE]"
+	case strings.HasPrefix(cleanPath, "/api/v1/connections"):
+		return "[CONNECTION SERVICE]"
+	case strings.HasPrefix(cleanPath, "/api/v1/conversations"):
+		return "[CHAT CONVERSATION]"
+	case strings.HasPrefix(cleanPath, "/api/v1/notifications"):
+		return "[NOTIFICATION SERVICE]"
+	case strings.HasPrefix(cleanPath, "/api/v1/homepage"):
+		return "[HOMEPAGE LANDING]"
+
+	// Health check
+	case cleanPath == "/" || cleanPath == "/health":
+		return "[HEALTH CHECK]"
+
+	default:
+		return fmt.Sprintf("[%s]", method)
 	}
 }
 

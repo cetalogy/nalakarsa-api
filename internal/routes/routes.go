@@ -5,6 +5,7 @@ import (
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/middleware"
+	"nalakarsa/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,11 +19,11 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	r.Use(middleware.CORSMiddleware(cfg))
 
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
+		utils.JSONResponse(c, http.StatusOK, "Server is healthy", gin.H{
 			"status":  "healthy",
 			"service": "Nalakarsa Backend API Server",
 			"version": "1.0.0",
-		})
+		}, nil)
 	})
 
 	return r

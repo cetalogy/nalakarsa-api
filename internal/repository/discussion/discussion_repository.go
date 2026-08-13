@@ -105,13 +105,20 @@ func (r *pgDiscussionRepository) Update(disc *discussion.Discussion) error {
 }
 
 func (r *pgDiscussionRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&discussion.Discussion{}).Error
+	return r.db.Unscoped().Where("id = ?", id).Delete(&discussion.Discussion{}).Error
 }
 
 // --- Replies ---
 
 func (r *pgDiscussionRepository) CreateReply(reply *discussion.DiscussionReply) error {
-	return r.db.Create(reply).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(reply).Error; err != nil {
+			return err
+		}
+		return tx.Model(&discussion.Discussion{}).
+			Where("id = ?", reply.DiscussionID).
+			UpdateColumn("replies_count", gorm.Expr("replies_count + 1")).Error
+	})
 }
 
 func (r *pgDiscussionRepository) GetReplyByID(id uuid.UUID) (*discussion.DiscussionReply, error) {
@@ -145,23 +152,52 @@ func (r *pgDiscussionRepository) ListReplies(discussionID uuid.UUID, page, limit
 }
 
 func (r *pgDiscussionRepository) DeleteReply(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&discussion.DiscussionReply{}).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var reply discussion.DiscussionReply
+		if err := tx.Select("discussion_id").Where("id = ?", id).First(&reply).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("id = ?", id).Delete(&discussion.DiscussionReply{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&discussion.Discussion{}).
+			Where("id = ? AND replies_count > 0", reply.DiscussionID).
+			UpdateColumn("replies_count", gorm.Expr("replies_count - 1")).Error
+	})
 }
 
 func (r *pgDiscussionRepository) CountReplies(discussionID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&discussion.DiscussionReply{}).Where("discussion_id = ?", discussionID).Count(&count).Error
+	err := r.db.Model(&discussion.Discussion{}).Select("replies_count").Where("id = ?", discussionID).Scan(&count).Error
 	return count, err
 }
 
 // --- Votes ---
 
 func (r *pgDiscussionRepository) CreateVote(vote *discussion.DiscussionVote) error {
-	return r.db.Create(vote).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(vote).Error; err != nil {
+			return err
+		}
+		return tx.Model(&discussion.Discussion{}).
+			Where("id = ?", vote.DiscussionID).
+			UpdateColumn("upvote_count", gorm.Expr("upvote_count + 1")).Error
+	})
 }
 
 func (r *pgDiscussionRepository) DeleteVote(userID, discussionID uuid.UUID) error {
-	return r.db.Where("user_id = ? AND discussion_id = ?", userID, discussionID).Delete(&discussion.DiscussionVote{}).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		res := tx.Unscoped().Where("user_id = ? AND discussion_id = ?", userID, discussionID).Delete(&discussion.DiscussionVote{})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected > 0 {
+			return tx.Model(&discussion.Discussion{}).
+				Where("id = ? AND upvote_count > 0", discussionID).
+				UpdateColumn("upvote_count", gorm.Expr("upvote_count - 1")).Error
+		}
+		return nil
+	})
 }
 
 func (r *pgDiscussionRepository) HasVoted(userID, discussionID uuid.UUID) (bool, error) {
@@ -172,6 +208,6 @@ func (r *pgDiscussionRepository) HasVoted(userID, discussionID uuid.UUID) (bool,
 
 func (r *pgDiscussionRepository) CountVotes(discussionID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&discussion.DiscussionVote{}).Where("discussion_id = ?", discussionID).Count(&count).Error
+	err := r.db.Model(&discussion.Discussion{}).Select("upvote_count").Where("id = ?", discussionID).Scan(&count).Error
 	return count, err
 }

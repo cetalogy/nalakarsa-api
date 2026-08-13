@@ -18,7 +18,7 @@ type DiscussionService interface {
 	Update(userID uuid.UUID, id uuid.UUID, req dto.UpdateDiscussionRequest) error
 	Delete(userID uuid.UUID, id uuid.UUID) error
 	AddReply(userID uuid.UUID, discussionID uuid.UUID, req dto.CreateReplyRequest) (*dto.DiscussionReplyResponse, error)
-	ListReplies(discussionID uuid.UUID, page, limit int) ([]dto.DiscussionReplyResponse, int64, error)
+	ListReplies(discussionID uuid.UUID, page, limit int) (*dto.DiscussionRepliesData, int64, error)
 	DeleteReply(userID uuid.UUID, replyID uuid.UUID) error
 	Vote(userID uuid.UUID, discussionID uuid.UUID) error
 	Unvote(userID uuid.UUID, discussionID uuid.UUID) error
@@ -38,7 +38,7 @@ func (s *discussionService) Create(userID uuid.UUID, req dto.CreateDiscussionReq
 	disc := &discussion.Discussion{
 		UserID:      userID,
 		Title:       req.Title,
-		Description: req.Description,
+		Description: req.GetDescription(),
 		Category:    req.Category,
 		Tags:        req.Tags,
 		Status:      "open",
@@ -72,6 +72,7 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 		ID:                 disc.ID,
 		Title:              disc.Title,
 		Description:        disc.Description,
+		Excerpt:            disc.Description,
 		Category:           disc.Category,
 		Tags:               disc.Tags,
 		Status:             disc.Status,
@@ -80,6 +81,7 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 		UpvoteCount:        upvoteCount,
 		HasUpvoted:         hasUpvoted,
 		Time:               disc.CreatedAt,
+		CreatedAt:          disc.CreatedAt,
 		Author:             disc.User.FullName,
 		Role:               disc.User.Role,
 		SourceDiscussionID: disc.SourceDiscussionID,
@@ -93,7 +95,7 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 	}, nil
 }
 
-func (s *discussionService) ListReplies(discussionID uuid.UUID, page, limit int) ([]dto.DiscussionReplyResponse, int64, error) {
+func (s *discussionService) ListReplies(discussionID uuid.UUID, page, limit int) (*dto.DiscussionRepliesData, int64, error) {
 	disc, err := s.discRepo.GetByID(discussionID)
 	if err != nil {
 		return nil, 0, err
@@ -117,7 +119,17 @@ func (s *discussionService) ListReplies(discussionID uuid.UUID, page, limit int)
 		return nil, 0, err
 	}
 
-	return s.toDiscussionReplyResponses(replies), total, nil
+	replyResponses := s.toDiscussionReplyResponses(replies)
+	if replyResponses == nil {
+		replyResponses = []dto.DiscussionReplyResponse{}
+	}
+
+	return &dto.DiscussionRepliesData{
+		DiscussionID: disc.ID,
+		TopicTitle:   disc.Title,
+		TotalReplies: total,
+		Replies:      replyResponses,
+	}, total, nil
 }
 
 func (s *discussionService) List(search, category, role, sort string, page, limit int, currentUserID *uuid.UUID) ([]dto.DiscussionResponse, int64, error) {
@@ -172,7 +184,9 @@ func (s *discussionService) Update(userID uuid.UUID, id uuid.UUID, req dto.Updat
 	}
 
 	disc.Title = req.Title
-	disc.Description = req.Description
+	if desc := req.GetDescription(); desc != "" {
+		disc.Description = desc
+	}
 	disc.Category = req.Category
 	disc.Tags = req.Tags
 	if req.Status != "" {
@@ -279,6 +293,9 @@ func (s *discussionService) toDiscussionReplyResponse(r discussion.DiscussionRep
 }
 
 func (s *discussionService) toDiscussionReplyResponses(replies []discussion.DiscussionReply) []dto.DiscussionReplyResponse {
+	if len(replies) == 0 {
+		return []dto.DiscussionReplyResponse{}
+	}
 	res := make([]dto.DiscussionReplyResponse, len(replies))
 	for i, r := range replies {
 		res[i] = s.toDiscussionReplyResponse(r)

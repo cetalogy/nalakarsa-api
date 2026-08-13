@@ -45,7 +45,7 @@ func (h *ConversationHandler) GetOrCreateDirect(c *gin.Context) {
 
 	var req dto.CreateDirectConversationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *ConversationHandler) StartChat(c *gin.Context) {
 
 	var req dto.StartChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 
 	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 

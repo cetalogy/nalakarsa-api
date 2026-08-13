@@ -24,7 +24,7 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 
 	var req dto.CreateProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h *ProjectHandler) CreateFromDiscussion(c *gin.Context) {
 
 	var req dto.CreateCollaborationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *ProjectHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -128,7 +128,13 @@ func (h *ProjectHandler) Update(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Project updated successfully", nil, nil)
+	project, err := h.projService.GetByID(id)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusOK, "Project updated successfully", gin.H{"id": id}, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Project updated successfully", project, nil)
 }
 
 func (h *ProjectHandler) Delete(c *gin.Context) {
@@ -163,7 +169,7 @@ func (h *ProjectHandler) Apply(c *gin.Context) {
 
 	var req dto.ApplyProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -214,7 +220,7 @@ func (h *ProjectHandler) UpdateApplicationStatus(c *gin.Context) {
 
 	var req dto.UpdateApplicationStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -252,7 +258,7 @@ func (h *ProjectHandler) CreateMilestone(c *gin.Context) {
 
 	var req dto.CreateMilestoneRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -280,7 +286,7 @@ func (h *ProjectHandler) UpdateMilestone(c *gin.Context) {
 
 	var req dto.UpdateMilestoneRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 

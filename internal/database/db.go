@@ -124,5 +124,13 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		log.Println("Database auto-migration is disabled (DB_AUTO_MIGRATE=false).")
 	}
 
+	// Ensure Counter Cache columns exist
+	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS replies_count BIGINT DEFAULT 0 NOT NULL").Error
+	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS upvote_count BIGINT DEFAULT 0 NOT NULL").Error
+
+	// Ensure Compound Performance Indexes exist
+	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_replies_discussion_created ON discussion_replies (discussion_id, created_at DESC)").Error
+	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_discussion_user ON discussion_votes (discussion_id, user_id)").Error
+
 	return db, nil
 }

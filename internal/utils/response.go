@@ -1,58 +1,155 @@
 package utils
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"strconv"
+	"strings"
+	"time"
 
 	"nalakarsa/internal/dto"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
-// JSONResponse sends a successful JSON response using the standard envelope:
-// { "data": ..., "meta": ..., "message": "..." }
+// JSONResponse sends a successful JSON response using the standard envelope
 func JSONResponse(c *gin.Context, statusCode int, message string, data interface{}, pagination *dto.PaginationResponse) {
 	c.JSON(statusCode, dto.APIResponse{
-		Data:    data,
-		Meta:    pagination,
-		Message: message,
+		Data:      data,
+		Meta:      pagination,
+		Message:   message,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
-// ErrorJSONResponse sends an error JSON response with error code and optional details:
-// { "error": { "code": "...", "message": "...", "details": { ... } } }
+// ErrorJSONResponse sends an error JSON response with error code, message, timestamp, and details
 func ErrorJSONResponse(c *gin.Context, statusCode int, code string, message string, details map[string]string) {
 	c.JSON(statusCode, dto.APIErrorResponse{
 		Error: dto.APIErrorDetail{
-			Code:    code,
-			Message: message,
-			Details: details,
+			Code:      code,
+			Message:   message,
+			Details:   details,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
 		},
 	})
 }
 
-// ErrorJSONResponseWithMessage sends a simple error response with just code and message
+// ErrorJSONResponseWithMessage sends a rich error response with error code, message, and contextual details
 func ErrorJSONResponseWithMessage(c *gin.Context, statusCode int, message string) {
 	code := "INTERNAL_ERROR"
-	switch {
-	case statusCode == 400:
+	details := make(map[string]string)
+
+	switch statusCode {
+	case 400:
 		code = "BAD_REQUEST"
-	case statusCode == 401:
+		details["reason"] = message
+		details["suggestion"] = "Verify query parameters, path variables, or request format"
+	case 401:
 		code = "UNAUTHORIZED"
-	case statusCode == 403:
+		details["reason"] = message
+		msgLower := strings.ToLower(message)
+		if strings.Contains(msgLower, "email") || strings.Contains(msgLower, "password") || strings.Contains(msgLower, "credential") {
+			details["suggestion"] = "Please check your email address and password, or register a new account"
+		} else {
+			details["suggestion"] = "Provide a valid JWT token in Authorization header or perform a login/token refresh"
+		}
+	case 403:
 		code = "FORBIDDEN"
-	case statusCode == 404:
+		details["reason"] = message
+		details["suggestion"] = "Ensure you are logged in with the correct account or resource ownership"
+	case 404:
 		code = "NOT_FOUND"
-	case statusCode == 409:
+		details["reason"] = message
+		details["suggestion"] = "Check the requested ID or endpoint path to ensure resource exists"
+	case 409:
 		code = "CONFLICT"
-	case statusCode == 429:
+		details["reason"] = message
+		details["suggestion"] = "The request conflicts with existing data or resource state"
+	case 429:
 		code = "RATE_LIMITED"
+		details["reason"] = message
+		details["suggestion"] = "Too many requests. Please wait a moment before trying again"
+	default:
+		code = "INTERNAL_ERROR"
+		details["reason"] = message
+		details["suggestion"] = "An unexpected server condition occurred. Please try again or contact support"
 	}
-	ErrorJSONResponse(c, statusCode, code, message, nil)
+
+	ErrorJSONResponse(c, statusCode, code, message, details)
 }
 
-// ValidationErrorResponse sends a validation error response with per-field details
-func ValidationErrorResponse(c *gin.Context, details map[string]string) {
-	ErrorJSONResponse(c, 400, "VALIDATION_ERROR", "Data tidak valid", details)
+// ValidationErrorResponse sends a validation error response with per-field details.
+// Accepts either an error (parsed into field details) or a map[string]string.
+func ValidationErrorResponse(c *gin.Context, input interface{}) {
+	var details map[string]string
+	switch v := input.(type) {
+	case map[string]string:
+		details = v
+	case error:
+		details = FormatBindingError(v)
+	}
+	ErrorJSONResponse(c, 400, "VALIDATION_ERROR", "Validation failed", details)
+}
+
+// FormatBindingError extracts per-field validation error messages or friendly JSON parsing error messages
+func FormatBindingError(err error) map[string]string {
+	details := make(map[string]string)
+	if err == nil {
+		return details
+	}
+
+	// Handle empty body (EOF)
+	if errors.Is(err, io.EOF) || err.Error() == "EOF" {
+		details["body"] = "Request body cannot be empty. Please provide a valid JSON payload."
+		return details
+	}
+
+	// Handle JSON syntax error
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) {
+		details["body"] = fmt.Sprintf("Malformed JSON syntax at offset %d", syntaxErr.Offset)
+		return details
+	}
+
+	// Handle data type mismatch in JSON payload
+	var unmarshalErr *json.UnmarshalTypeError
+	if errors.As(err, &unmarshalErr) {
+		fieldName := strings.ToLower(unmarshalErr.Field)
+		if fieldName == "" {
+			fieldName = "body"
+		}
+		details[fieldName] = fmt.Sprintf("Expected %s type, but received %s", unmarshalErr.Type.String(), unmarshalErr.Value)
+		return details
+	}
+
+	// Handle validator rules (required, min, max, email, etc.)
+	if ve, ok := err.(validator.ValidationErrors); ok {
+		for _, fe := range ve {
+			field := strings.ToLower(fe.Field())
+			switch fe.Tag() {
+			case "required":
+				details[field] = fmt.Sprintf("%s is required", field)
+			case "email":
+				details[field] = fmt.Sprintf("%s must be a valid email address", field)
+			case "min":
+				details[field] = fmt.Sprintf("%s must be at least %s characters long", field, fe.Param())
+			case "max":
+				details[field] = fmt.Sprintf("%s cannot exceed %s characters", field, fe.Param())
+			case "oneof":
+				details[field] = fmt.Sprintf("%s must be one of [%s]", field, fe.Param())
+			default:
+				details[field] = fmt.Sprintf("%s failed on validation rule '%s'", field, fe.Tag())
+			}
+		}
+		return details
+	}
+
+	// Fallback for non-validator parsing errors
+	details["body"] = fmt.Sprintf("Invalid request payload: %s", err.Error())
+	return details
 }
 
 // ParsePaginationRequest helper to parse page and limit queries
