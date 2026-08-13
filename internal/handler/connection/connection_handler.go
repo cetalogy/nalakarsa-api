@@ -65,7 +65,7 @@ func (h *ConnectionHandler) SendRequest(c *gin.Context) {
 
 	var req dto.SendConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 

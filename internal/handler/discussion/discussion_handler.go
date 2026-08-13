@@ -39,7 +39,7 @@ func (h *DiscussionHandler) Create(c *gin.Context) {
 
 	var req dto.CreateDiscussionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -49,7 +49,13 @@ func (h *DiscussionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusCreated, "Discussion topic created successfully", gin.H{"id": id}, nil)
+	disc, err := h.discService.GetByID(id, &userID)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusCreated, "Discussion topic created successfully", gin.H{"id": id}, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Discussion topic created successfully", disc, nil)
 }
 
 func (h *DiscussionHandler) GetByID(c *gin.Context) {
@@ -153,7 +159,7 @@ func (h *DiscussionHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateDiscussionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -168,7 +174,13 @@ func (h *DiscussionHandler) Update(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Discussion topic updated successfully", nil, nil)
+	disc, err := h.discService.GetByID(id, &userID)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusOK, "Discussion topic updated successfully", gin.H{"id": id}, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Discussion topic updated successfully", disc, nil)
 }
 
 func (h *DiscussionHandler) Delete(c *gin.Context) {
@@ -197,7 +209,7 @@ func (h *DiscussionHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Discussion topic deleted successfully", nil, nil)
+	utils.JSONResponse(c, http.StatusOK, "Discussion topic deleted successfully", gin.H{"id": id, "deleted": true}, nil)
 }
 
 func (h *DiscussionHandler) AddReply(c *gin.Context) {
@@ -217,7 +229,7 @@ func (h *DiscussionHandler) AddReply(c *gin.Context) {
 
 	var req dto.CreateReplyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -260,7 +272,7 @@ func (h *DiscussionHandler) DeleteReply(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Reply deleted successfully", nil, nil)
+	utils.JSONResponse(c, http.StatusOK, "Reply deleted successfully", gin.H{"id": replyID, "deleted": true}, nil)
 }
 
 func (h *DiscussionHandler) Vote(c *gin.Context) {
@@ -289,7 +301,13 @@ func (h *DiscussionHandler) Vote(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusCreated, "Upvoted successfully", nil, nil)
+	disc, err := h.discService.GetByID(discussionID, &userID)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusCreated, "Upvoted successfully", gin.H{"discussion_id": discussionID, "has_upvoted": true}, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Upvoted successfully", disc, nil)
 }
 
 func (h *DiscussionHandler) Unvote(c *gin.Context) {
@@ -312,7 +330,13 @@ func (h *DiscussionHandler) Unvote(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Upvote removed successfully", nil, nil)
+	disc, err := h.discService.GetByID(discussionID, &userID)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusOK, "Upvote removed successfully", gin.H{"discussion_id": discussionID, "has_upvoted": false}, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Upvote removed successfully", disc, nil)
 }
 
 func (h *DiscussionHandler) MarkCollaboration(c *gin.Context) {

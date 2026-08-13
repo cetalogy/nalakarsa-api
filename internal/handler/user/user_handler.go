@@ -51,7 +51,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorJSONResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed", nil)
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -60,7 +60,13 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Profile updated successfully", nil, nil)
+	profile, err := h.userService.GetProfile(userID)
+	if err != nil {
+		utils.JSONResponse(c, http.StatusOK, "Profile updated successfully", nil, nil)
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Profile updated successfully", profile, nil)
 }
 
 func (h *UserHandler) GetPublicProfile(c *gin.Context) {

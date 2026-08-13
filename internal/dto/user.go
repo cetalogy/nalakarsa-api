@@ -74,9 +74,10 @@ type PaginationResponse struct {
 
 // APIResponse is the standard response envelope
 type APIResponse struct {
-	Data    interface{}         `json:"data,omitempty"`
-	Meta    *PaginationResponse `json:"meta,omitempty"`
-	Message string              `json:"message"`
+	Data      interface{}         `json:"data,omitempty"`
+	Meta      *PaginationResponse `json:"meta,omitempty"`
+	Message   string              `json:"message"`
+	Timestamp string              `json:"timestamp,omitempty"`
 }
 
 // APIErrorResponse is the standard error envelope
@@ -85,8 +86,8 @@ type APIErrorResponse struct {
 }
 
 type APIErrorDetail struct {
-	Code    string            `json:"code"`
-	Message string            `json:"message"`
-	// Use `details` as the canonical error details field.
-	Details map[string]string `json:"details,omitempty"`
+	Code      string            `json:"code"`
+	Message   string            `json:"message"`
+	Details   map[string]string `json:"details,omitempty"`
+	Timestamp string            `json:"timestamp,omitempty"`
 }

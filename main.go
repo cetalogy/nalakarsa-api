@@ -17,6 +17,7 @@ import (
 	projecthandler "nalakarsa/internal/handler/project"
 	userhandler "nalakarsa/internal/handler/user"
 	"nalakarsa/internal/middleware"
+	"nalakarsa/internal/utils"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	conversationrepository "nalakarsa/internal/repository/conversation"
 	discussionrepository "nalakarsa/internal/repository/discussion"
@@ -125,11 +126,11 @@ func main() {
 
 	// Root Healthcheck endpoint
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
+		utils.JSONResponse(c, http.StatusOK, "Nalakarsa Backend API Server", gin.H{
 			"status":  "healthy",
 			"service": "Nalakarsa Backend API Server",
 			"version": "1.0.0",
-		})
+		}, nil)
 	})
 
 	// 6. Start Server
