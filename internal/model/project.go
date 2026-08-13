@@ -1,9 +1,7 @@
-package project
+package model
 
 import (
 	"time"
-
-	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -29,7 +27,7 @@ type Project struct {
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 
 	// Relations
-	Owner        user.User            `gorm:"foreignKey:OwnerID;constraint:OnDelete:CASCADE"`
+	Owner        User                 `gorm:"foreignKey:OwnerID;constraint:OnDelete:CASCADE"`
 	Members      []ProjectMember      `gorm:"foreignKey:ProjectID;constraint:OnDelete:CASCADE"`
 	Applications []ProjectApplication `gorm:"foreignKey:ProjectID;constraint:OnDelete:CASCADE"`
 	Milestones   []ProjectMilestone   `gorm:"foreignKey:ProjectID;constraint:OnDelete:CASCADE"`

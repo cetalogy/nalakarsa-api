@@ -8,7 +8,7 @@ import (
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model/user"
+	"nalakarsa/internal/model"
 	userrepository "nalakarsa/internal/repository/user"
 	"nalakarsa/internal/utils"
 
@@ -51,7 +51,7 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	}
 
 	// Create user model
-	u := &user.User{
+	u := &model.User{
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
 		Role:         req.Role,
@@ -281,7 +281,7 @@ func (s *authService) saveRefreshTokenWithSessionMeta(
 		ipAddress = strings.TrimSpace(ctx.IPAddress)
 	}
 
-	refreshToken := &user.RefreshToken{
+	refreshToken := &model.RefreshToken{
 		UserID:     userID,
 		Token:      token,
 		ExpiresAt:  expiresAt,
@@ -295,7 +295,7 @@ func (s *authService) saveRefreshTokenWithSessionMeta(
 
 func (s *authService) withFallbackSessionContext(
 	ctx *dto.AuthRequestContext,
-	legacy *user.RefreshToken,
+	legacy *model.RefreshToken,
 ) *dto.AuthRequestContext {
 	fallback := &dto.AuthRequestContext{}
 	if ctx != nil {

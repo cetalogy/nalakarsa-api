@@ -3,10 +3,7 @@ package seed
 import (
 	"log"
 
-	"nalakarsa/internal/model/discussion"
-	"nalakarsa/internal/model/homepage"
-	"nalakarsa/internal/model/project"
-	"nalakarsa/internal/model/user"
+	"nalakarsa/internal/model"
 	"nalakarsa/internal/utils"
 
 	"gorm.io/gorm"
@@ -17,16 +14,16 @@ func SeedData(db *gorm.DB) error {
 
 	// 1. Clear existing data
 	log.Println("Purging existing data...")
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&homepage.HomepageSection{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&homepage.HomepageHero{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&homepage.HomepageTestimonial{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&project.ProjectApplication{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&project.Project{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&discussion.DiscussionReply{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&discussion.Discussion{})
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&user.RefreshToken{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageSection{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageHero{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageTestimonial{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ProjectApplication{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Project{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.DiscussionReply{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Discussion{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.RefreshToken{})
 
-	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&user.User{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.User{})
 
 	hashedPassword, err := utils.HashPassword("password123")
 	if err != nil {
@@ -34,7 +31,7 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	// 2. Create Users & Profiles
-	akademisiUser := &user.User{
+	akademisiUser := &model.User{
 		Email:        "dosen@nalakarsa.id",
 		PasswordHash: hashedPassword,
 		Role:         "akademisi",
@@ -53,7 +50,7 @@ func SeedData(db *gorm.DB) error {
 		AvatarURL:    "https://api.dicebear.com/7.x/adventurer/svg?seed=budi",
 	}
 
-	praktisiUser := &user.User{
+	praktisiUser := &model.User{
 		Email:        "pengusaha@nalakarsa.id",
 		PasswordHash: hashedPassword,
 		Role:         "praktisi",
@@ -72,7 +69,7 @@ func SeedData(db *gorm.DB) error {
 		AvatarURL:    "https://api.dicebear.com/7.x/adventurer/svg?seed=hendra",
 	}
 
-	profesionalUser := &user.User{
+	profesionalUser := &model.User{
 		Email:        "engineer@nalakarsa.id",
 		PasswordHash: hashedPassword,
 		Role:         "profesional",
@@ -102,7 +99,7 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	// 3. Create Discussion Topics
-	disc1 := &discussion.Discussion{
+	disc1 := &model.Discussion{
 		UserID:      profesionalUser.ID,
 		Title:       "Mengapa Golang Sangat Cocok untuk Microservices?",
 		Description: "Dalam ekosistem Nalakarsa, saya ingin berdiskusi mengenai konkurensi di Go. Goroutines dan Channels membuat pemrosesan paralel menjadi sangat efisien dibandingkan thread konvensional. Bagaimana pengalaman rekan-rekan?",
@@ -111,7 +108,7 @@ func SeedData(db *gorm.DB) error {
 		Status:      "open",
 	}
 
-	disc2 := &discussion.Discussion{
+	disc2 := &model.Discussion{
 		UserID:      akademisiUser.ID,
 		Title:       "Hilirisasi Hasil Riset Universitas ke Sektor Industri",
 		Description: "Banyak prototipe riset IoT terhenti di laci laboratorium. Kendala utama adalah kurangnya komunikasi dengan pelaku bisnis. Mari kita bahas bagaimana menjembatani gap ini.",
@@ -128,13 +125,13 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	// 4. Create Discussion Replies
-	reply1 := &discussion.DiscussionReply{
+	reply1 := &model.DiscussionReply{
 		DiscussionID: disc1.ID,
 		UserID:       akademisiUser.ID,
 		Content:      "Setuju sekali! Kami di lab riset juga menggunakan Go untuk backend sensor gateway kami karena penggunaan memori yang sangat kecil.",
 	}
 
-	reply2 := &discussion.DiscussionReply{
+	reply2 := &model.DiscussionReply{
 		DiscussionID: disc2.ID,
 		UserID:       praktisiUser.ID,
 		Content:      "Kami dari sektor swasta siap menampung riset yang sudah matang di TRL 7 ke atas untuk dikomersialkan. Silakan hubungi kami.",
@@ -148,7 +145,7 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	// 5. Create Projects (Replacing Collaboration)
-	proj := &project.Project{
+	proj := &model.Project{
 		OwnerID:       akademisiUser.ID,
 		Title:         "Pengembangan Lapangan Sistem IoT Monitoring Tanah Pertanian",
 		Description:   "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
@@ -164,7 +161,7 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	// 6. Create Application
-	app := &project.ProjectApplication{
+	app := &model.ProjectApplication{
 		ProjectID:   proj.ID,
 		ApplicantID: praktisiUser.ID,
 		Message:     "Halo Pak Budi, saya Hendra dari PT Tani Maju Digital. Kami memiliki perkebunan teh seluas 3 hektar di daerah Bogor dan sangat tertarik untuk dijadikan lahan riset implementasi alat ini.",
@@ -176,7 +173,7 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	// 7. Seed Homepage landing content
-	hero := &homepage.HomepageHero{
+	hero := &model.HomepageHero{
 		Headline:     "Kolaborasi Riset jadi Solusi Nyata",
 		SubHeadline:  "Temukan akademisi, praktisi, dan profesional untuk mendorong riset yang berdampak.",
 		CallToAction: "Jelajahi Diskusi",
@@ -185,7 +182,7 @@ func SeedData(db *gorm.DB) error {
 		IsActive:     true,
 	}
 
-	sections := []homepage.HomepageSection{
+	sections := []model.HomepageSection{
 		{
 			Key:       "benefits",
 			Title:     "Mengapa Nalakarsa?",
@@ -206,7 +203,7 @@ func SeedData(db *gorm.DB) error {
 		},
 	}
 
-	testimonials := []homepage.HomepageTestimonial{
+	testimonials := []model.HomepageTestimonial{
 		{
 			Name:      "Dr. Raka Santoso",
 			Role:      "Dosen",

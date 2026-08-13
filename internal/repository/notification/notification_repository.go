@@ -1,15 +1,15 @@
 package notificationrepository
 
 import (
-	"nalakarsa/internal/model/notification"
+	"nalakarsa/internal/model"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type NotificationRepository interface {
-	Create(notif *notification.Notification) error
-	ListByUser(userID uuid.UUID, page, limit int) ([]notification.Notification, int64, error)
+	Create(notif *model.Notification) error
+	ListByUser(userID uuid.UUID, page, limit int) ([]model.Notification, int64, error)
 	MarkRead(id uuid.UUID) error
 	MarkAllRead(userID uuid.UUID) error
 	CountUnread(userID uuid.UUID) (int64, error)
@@ -23,15 +23,15 @@ func NewNotificationRepository(db *gorm.DB) NotificationRepository {
 	return &pgNotificationRepository{db: db}
 }
 
-func (r *pgNotificationRepository) Create(notif *notification.Notification) error {
+func (r *pgNotificationRepository) Create(notif *model.Notification) error {
 	return r.db.Create(notif).Error
 }
 
-func (r *pgNotificationRepository) ListByUser(userID uuid.UUID, page, limit int) ([]notification.Notification, int64, error) {
-	var notifs []notification.Notification
+func (r *pgNotificationRepository) ListByUser(userID uuid.UUID, page, limit int) ([]model.Notification, int64, error) {
+	var notifs []model.Notification
 	var total int64
 
-	query := r.db.Model(&notification.Notification{}).Where("user_id = ?", userID)
+	query := r.db.Model(&model.Notification{}).Where("user_id = ?", userID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -55,7 +55,7 @@ func (r *pgNotificationRepository) MarkAllRead(userID uuid.UUID) error {
 
 func (r *pgNotificationRepository) CountUnread(userID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&notification.Notification{}).
+	err := r.db.Model(&model.Notification{}).
 		Where("user_id = ? AND read_at IS NULL", userID).
 		Count(&count).Error
 	return count, err

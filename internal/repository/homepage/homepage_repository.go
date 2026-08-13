@@ -3,15 +3,15 @@ package homepagerepository
 import (
 	"errors"
 
-	"nalakarsa/internal/model/homepage"
+	"nalakarsa/internal/model"
 
 	"gorm.io/gorm"
 )
 
 type HomepageRepository interface {
-	GetHero() (*homepage.HomepageHero, error)
-	ListSections() ([]homepage.HomepageSection, error)
-	ListTestimonials() ([]homepage.HomepageTestimonial, error)
+	GetHero() (*model.HomepageHero, error)
+	ListSections() ([]model.HomepageSection, error)
+	ListTestimonials() ([]model.HomepageTestimonial, error)
 }
 
 type pgHomepageRepository struct {
@@ -22,8 +22,8 @@ func NewHomepageRepository(db *gorm.DB) HomepageRepository {
 	return &pgHomepageRepository{db: db}
 }
 
-func (r *pgHomepageRepository) GetHero() (*homepage.HomepageHero, error) {
-	var hero homepage.HomepageHero
+func (r *pgHomepageRepository) GetHero() (*model.HomepageHero, error) {
+	var hero model.HomepageHero
 	err := r.db.Where("is_active = ?", true).Order("updated_at desc").First(&hero).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -34,8 +34,8 @@ func (r *pgHomepageRepository) GetHero() (*homepage.HomepageHero, error) {
 	return &hero, nil
 }
 
-func (r *pgHomepageRepository) ListSections() ([]homepage.HomepageSection, error) {
-	var sections []homepage.HomepageSection
+func (r *pgHomepageRepository) ListSections() ([]model.HomepageSection, error) {
+	var sections []model.HomepageSection
 	err := r.db.Where("is_active = ?", true).Order("sort_order asc").Find(&sections).Error
 	if err != nil {
 		return nil, err
@@ -43,8 +43,8 @@ func (r *pgHomepageRepository) ListSections() ([]homepage.HomepageSection, error
 	return sections, nil
 }
 
-func (r *pgHomepageRepository) ListTestimonials() ([]homepage.HomepageTestimonial, error) {
-	var testimonials []homepage.HomepageTestimonial
+func (r *pgHomepageRepository) ListTestimonials() ([]model.HomepageTestimonial, error) {
+	var testimonials []model.HomepageTestimonial
 	err := r.db.Where("is_active = ?", true).Order("sort_order asc").Find(&testimonials).Error
 	if err != nil {
 		return nil, err

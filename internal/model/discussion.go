@@ -1,9 +1,7 @@
-package discussion
+package model
 
 import (
 	"time"
-
-	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -26,7 +24,7 @@ type Discussion struct {
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 
 	// Relations
-	User    user.User         `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	User    User              `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 	Replies []DiscussionReply `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`
 	Votes   []DiscussionVote  `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`
 }

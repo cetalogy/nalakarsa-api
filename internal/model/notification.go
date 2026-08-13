@@ -1,9 +1,7 @@
-package notification
+package model
 
 import (
 	"time"
-
-	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 )
@@ -23,5 +21,5 @@ type Notification struct {
 	CreatedAt    time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	// Relations
-	Actor *user.User `gorm:"foreignKey:ActorID;constraint:OnDelete:SET NULL"`
+	Actor *User `gorm:"foreignKey:ActorID;constraint:OnDelete:SET NULL"`
 }

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model/project"
+	"nalakarsa/internal/model"
 	discussionrepository "nalakarsa/internal/repository/discussion"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
@@ -39,7 +39,7 @@ func NewProjectService(projRepo projectrepository.ProjectRepository, userRepo us
 }
 
 func (s *projectService) Create(userID uuid.UUID, req dto.CreateProjectRequest) (uuid.UUID, error) {
-	p := &project.Project{
+	p := &model.Project{
 		OwnerID:       userID,
 		Title:         req.Title,
 		Description:   req.Description,
@@ -68,7 +68,7 @@ func (s *projectService) CreateFromDiscussion(userID uuid.UUID, discussionID uui
 		return uuid.Nil, errors.New("discussion not found")
 	}
 
-	p := &project.Project{
+	p := &model.Project{
 		OwnerID:            userID,
 		Title:              disc.Title,
 		Description:        disc.Description,
@@ -205,7 +205,7 @@ func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.Ap
 		return uuid.Nil, errors.New("project is not open for applications")
 	}
 
-	app := &project.ProjectApplication{
+	app := &model.ProjectApplication{
 		ProjectID:   projectID,
 		ApplicantID: userID,
 		Message:     req.Message,
@@ -287,7 +287,7 @@ func (s *projectService) UpdateApplicationStatus(userID uuid.UUID, projectID uui
 
 	// If accepted, add as project member
 	if req.Status == "accepted" {
-		member := &project.ProjectMember{
+		member := &model.ProjectMember{
 			ProjectID: projectID,
 			UserID:    app.ApplicantID,
 			Role:      "member",
@@ -335,7 +335,7 @@ func (s *projectService) CreateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 		return uuid.Nil, errors.New("unauthorized to create milestones for this project")
 	}
 
-	milestone := &project.ProjectMilestone{
+	milestone := &model.ProjectMilestone{
 		ProjectID:  projectID,
 		Title:      req.Title,
 		DueAt:      req.DueAt,
@@ -384,7 +384,7 @@ func (s *projectService) UpdateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 	return s.projRepo.UpdateMilestone(milestone)
 }
 
-func toProjectResponse(p *project.Project) dto.ProjectResponse {
+func toProjectResponse(p *model.Project) dto.ProjectResponse {
 	return dto.ProjectResponse{
 		ID:                 p.ID,
 		Title:              p.Title,

@@ -3,26 +3,26 @@ package conversationrepository
 import (
 	"errors"
 
-	"nalakarsa/internal/model/conversation"
+	"nalakarsa/internal/model"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ConversationRepository interface {
-	Create(conv *conversation.Conversation) error
-	GetByID(id uuid.UUID) (*conversation.Conversation, error)
-	GetDirectByPair(userA, userB uuid.UUID) (*conversation.Conversation, error)
-	ListByUser(userID uuid.UUID, page, limit int) ([]conversation.Conversation, int64, error)
+	Create(conv *model.Conversation) error
+	GetByID(id uuid.UUID) (*model.Conversation, error)
+	GetDirectByPair(userA, userB uuid.UUID) (*model.Conversation, error)
+	ListByUser(userID uuid.UUID, page, limit int) ([]model.Conversation, int64, error)
 
 	// Members
-	AddMember(member *conversation.ConversationMember) error
-	GetMember(conversationID, userID uuid.UUID) (*conversation.ConversationMember, error)
+	AddMember(member *model.ConversationMember) error
+	GetMember(conversationID, userID uuid.UUID) (*model.ConversationMember, error)
 	UpdateLastRead(conversationID, userID, messageID uuid.UUID) error
 
 	// Messages
-	CreateMessage(msg *conversation.Message) error
-	ListMessages(conversationID uuid.UUID, limit int, cursor string) ([]conversation.Message, error)
+	CreateMessage(msg *model.Message) error
+	ListMessages(conversationID uuid.UUID, limit int, cursor string) ([]model.Message, error)
 	CountUnread(conversationID, userID uuid.UUID) (int64, error)
 	CountTotalUnread(userID uuid.UUID) (int64, error)
 
@@ -38,12 +38,12 @@ func NewConversationRepository(db *gorm.DB) ConversationRepository {
 	return &pgConversationRepository{db: db}
 }
 
-func (r *pgConversationRepository) Create(conv *conversation.Conversation) error {
+func (r *pgConversationRepository) Create(conv *model.Conversation) error {
 	return r.db.Create(conv).Error
 }
 
-func (r *pgConversationRepository) GetByID(id uuid.UUID) (*conversation.Conversation, error) {
-	var conv conversation.Conversation
+func (r *pgConversationRepository) GetByID(id uuid.UUID) (*model.Conversation, error) {
+	var conv model.Conversation
 	err := r.db.Preload("Members.User").Where("id = ?", id).First(&conv).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -54,8 +54,8 @@ func (r *pgConversationRepository) GetByID(id uuid.UUID) (*conversation.Conversa
 	return &conv, nil
 }
 
-func (r *pgConversationRepository) GetDirectByPair(userA, userB uuid.UUID) (*conversation.Conversation, error) {
-	var conv conversation.Conversation
+func (r *pgConversationRepository) GetDirectByPair(userA, userB uuid.UUID) (*model.Conversation, error) {
+	var conv model.Conversation
 	err := r.db.Preload("Members.User").
 		Where("type = 'direct' AND id IN ("+
 			"SELECT cm1.conversation_id FROM conversation_members cm1 "+
@@ -72,11 +72,11 @@ func (r *pgConversationRepository) GetDirectByPair(userA, userB uuid.UUID) (*con
 	return &conv, nil
 }
 
-func (r *pgConversationRepository) ListByUser(userID uuid.UUID, page, limit int) ([]conversation.Conversation, int64, error) {
-	var convs []conversation.Conversation
+func (r *pgConversationRepository) ListByUser(userID uuid.UUID, page, limit int) ([]model.Conversation, int64, error) {
+	var convs []model.Conversation
 	var total int64
 
-	query := r.db.Model(&conversation.Conversation{}).
+	query := r.db.Model(&model.Conversation{}).
 		Where("id IN (SELECT conversation_id FROM conversation_members WHERE user_id = ?)", userID)
 
 	if err := query.Count(&total).Error; err != nil {
@@ -93,12 +93,12 @@ func (r *pgConversationRepository) ListByUser(userID uuid.UUID, page, limit int)
 
 // --- Members ---
 
-func (r *pgConversationRepository) AddMember(member *conversation.ConversationMember) error {
+func (r *pgConversationRepository) AddMember(member *model.ConversationMember) error {
 	return r.db.Create(member).Error
 }
 
-func (r *pgConversationRepository) GetMember(conversationID, userID uuid.UUID) (*conversation.ConversationMember, error) {
-	var member conversation.ConversationMember
+func (r *pgConversationRepository) GetMember(conversationID, userID uuid.UUID) (*model.ConversationMember, error) {
+	var member model.ConversationMember
 	err := r.db.Where("conversation_id = ? AND user_id = ?", conversationID, userID).First(&member).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -110,19 +110,19 @@ func (r *pgConversationRepository) GetMember(conversationID, userID uuid.UUID) (
 }
 
 func (r *pgConversationRepository) UpdateLastRead(conversationID, userID, messageID uuid.UUID) error {
-	return r.db.Model(&conversation.ConversationMember{}).
+	return r.db.Model(&model.ConversationMember{}).
 		Where("conversation_id = ? AND user_id = ?", conversationID, userID).
 		Update("last_read_message_id", messageID).Error
 }
 
 // --- Messages ---
 
-func (r *pgConversationRepository) CreateMessage(msg *conversation.Message) error {
+func (r *pgConversationRepository) CreateMessage(msg *model.Message) error {
 	return r.db.Create(msg).Error
 }
 
-func (r *pgConversationRepository) ListMessages(conversationID uuid.UUID, limit int, cursor string) ([]conversation.Message, error) {
-	var messages []conversation.Message
+func (r *pgConversationRepository) ListMessages(conversationID uuid.UUID, limit int, cursor string) ([]model.Message, error) {
+	var messages []model.Message
 	query := r.db.Preload("Sender").
 		Where("conversation_id = ?", conversationID)
 
@@ -130,7 +130,7 @@ func (r *pgConversationRepository) ListMessages(conversationID uuid.UUID, limit 
 		cursorID, err := uuid.Parse(cursor)
 		if err == nil {
 			// Get the created_at of the cursor message
-			var cursorMsg conversation.Message
+			var cursorMsg model.Message
 			if err := r.db.Select("created_at").Where("id = ?", cursorID).First(&cursorMsg).Error; err == nil {
 				query = query.Where("messages.created_at < ?", cursorMsg.CreatedAt)
 			}

@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model/connection"
+	"nalakarsa/internal/model"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -120,7 +120,7 @@ func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnection
 		}
 	}
 
-	conn := &connection.Connection{
+	conn := &model.Connection{
 		RequesterID: userID,
 		AddresseeID: req.TargetUserID,
 		Status:      "pending",
