@@ -18,6 +18,7 @@ type Config struct {
 	DBName                     string
 	DBSslMode                  string
 	DBTimeZone                 string
+	DBAutoMigrate              bool
 	FirebaseProjectID          string
 	FirebaseCredentialJSONPath string
 	FirebaseStorageBucket      string
@@ -45,6 +46,7 @@ func LoadConfig() *Config {
 		DBName:                     getEnv("DB_NAME", "nalakarsa"),
 		DBSslMode:                  getEnv("DB_SSLMODE", "disable"),
 		DBTimeZone:                 getEnv("DB_TIMEZONE", "Asia/Jakarta"),
+		DBAutoMigrate:              getEnvAsBool("DB_AUTO_MIGRATE", true),
 		FirebaseProjectID:          getEnv("FIREBASE_PROJECT_ID", ""),
 		FirebaseCredentialJSONPath: getEnv("FIREBASE_CREDENTIAL_JSON_PATH", ""),
 		FirebaseStorageBucket:      getEnv("FIREBASE_STORAGE_BUCKET", ""),
@@ -82,6 +84,15 @@ func getEnvRequired(key string) string {
 func getEnvAsInt(key string, defaultValue int) int {
 	valueStr := getEnv(key, "")
 	if value, err := strconv.Atoi(valueStr); err == nil {
+		return value
+	}
+	return defaultValue
+}
+
+// Fungsi untuk Konversi Boolean
+func getEnvAsBool(key string, defaultValue bool) bool {
+	valueStr := getEnv(key, "")
+	if value, err := strconv.ParseBool(valueStr); err == nil {
 		return value
 	}
 	return defaultValue

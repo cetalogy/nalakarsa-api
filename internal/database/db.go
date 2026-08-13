@@ -80,45 +80,49 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Auto Migration
-	log.Println("Running database migrations...")
-	err = db.AutoMigrate(
-		// Core
-		&user.User{},
+	if cfg.DBAutoMigrate {
+		log.Println("Running database migrations...")
+		err = db.AutoMigrate(
+			// Core
+			&user.User{},
 
-		&user.RefreshToken{},
+			&user.RefreshToken{},
 
-		// Discussions
-		&discussion.Discussion{},
-		&discussion.DiscussionReply{},
-		&discussion.DiscussionVote{},
+			// Discussions
+			&discussion.Discussion{},
+			&discussion.DiscussionReply{},
+			&discussion.DiscussionVote{},
 
-		// Connections
-		&connection.Connection{},
+			// Connections
+			&connection.Connection{},
 
-		// Projects
-		&project.Project{},
-		&project.ProjectMember{},
-		&project.ProjectApplication{},
-		&project.ProjectMilestone{},
+			// Projects
+			&project.Project{},
+			&project.ProjectMember{},
+			&project.ProjectApplication{},
+			&project.ProjectMilestone{},
 
-		// Chat
-		&conversation.Conversation{},
-		&conversation.ConversationMember{},
-		&conversation.Message{},
+			// Chat
+			&conversation.Conversation{},
+			&conversation.ConversationMember{},
+			&conversation.Message{},
 
-		// Notifications
-		&notification.Notification{},
+			// Notifications
+			&notification.Notification{},
 
-		// Homepage (landing content)
-		&homepage.HomepageHero{},
-		&homepage.HomepageSection{},
-		&homepage.HomepageTestimonial{},
-	)
+			// Homepage (landing content)
+			&homepage.HomepageHero{},
+			&homepage.HomepageSection{},
+			&homepage.HomepageTestimonial{},
+		)
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
+		if err != nil {
+			return nil, fmt.Errorf("failed to migrate database: %w", err)
+		}
+		log.Println("Database migration completed successfully.")
+	} else {
+		log.Println("Database auto-migration is disabled (DB_AUTO_MIGRATE=false).")
 	}
-	log.Println("Database migration completed successfully.")
 
 	return db, nil
 }
