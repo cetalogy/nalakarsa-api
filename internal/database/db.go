@@ -3,10 +3,17 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"nalakarsa/internal/config"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/connection"
+	"nalakarsa/internal/model/conversation"
+	"nalakarsa/internal/model/discussion"
+	"nalakarsa/internal/model/homepage"
+	"nalakarsa/internal/model/notification"
+	"nalakarsa/internal/model/project"
+	"nalakarsa/internal/model/user"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -24,12 +31,30 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		cfg.DBTimeZone,
 	)
 
-	gormConfig := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	}
+	dbLogger := logger.New(
+		log.New(os.Stdout, "", 0),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError:  true,
+			Colorful:                  true,
+		},
+	)
 
 	if cfg.Env == "production" {
-		gormConfig.Logger = logger.Default.LogMode(logger.Error)
+		dbLogger = logger.New(
+			log.New(os.Stdout, "", 0),
+			logger.Config{
+				SlowThreshold:             200 * time.Millisecond,
+				LogLevel:                  logger.Warn,
+				IgnoreRecordNotFoundError:  true,
+				Colorful:                  false,
+			},
+		)
+	}
+
+	gormConfig := &gorm.Config{
+		Logger: dbLogger,
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
@@ -55,44 +80,49 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Auto Migration
-	log.Println("Running database migrations...")
-	err = db.AutoMigrate(
-		// Core
-		&model.User{},
+	if cfg.DBAutoMigrate {
+		log.Println("Running database migrations...")
+		err = db.AutoMigrate(
+			// Core
+			&user.User{},
 
-		&model.RefreshToken{},
+			&user.RefreshToken{},
 
-		// Discussions
-		&model.Discussion{},
-		&model.DiscussionReply{},
-		&model.DiscussionVote{},
+			// Discussions
+			&discussion.Discussion{},
+			&discussion.DiscussionReply{},
+			&discussion.DiscussionVote{},
 
-		// Connections
-		&model.Connection{},
+			// Connections
+			&connection.Connection{},
 
-		// Projects
-		&model.Project{},
-		&model.ProjectMember{},
-		&model.ProjectApplication{},
-		&model.ProjectMilestone{},
+			// Projects
+			&project.Project{},
+			&project.ProjectMember{},
+			&project.ProjectApplication{},
+			&project.ProjectMilestone{},
 
-		// Chat
-		&model.Conversation{},
-		&model.ConversationMember{},
-		&model.Message{},
+			// Chat
+			&conversation.Conversation{},
+			&conversation.ConversationMember{},
+			&conversation.Message{},
 
-		// Notifications
-		&model.Notification{},
+			// Notifications
+			&notification.Notification{},
 
-		// Homepage (landing content)
-		&model.HomepageHero{},
-		&model.HomepageSection{},
-		&model.HomepageTestimonial{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
+			// Homepage (landing content)
+			&homepage.HomepageHero{},
+			&homepage.HomepageSection{},
+			&homepage.HomepageTestimonial{},
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to migrate database: %w", err)
+		}
+		log.Println("Database migration completed successfully.")
+	} else {
+		log.Println("Database auto-migration is disabled (DB_AUTO_MIGRATE=false).")
 	}
-	log.Println("Database migration completed successfully.")
 
 	return db, nil
 }

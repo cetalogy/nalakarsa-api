@@ -8,9 +8,9 @@ import (
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
-	"nalakarsa/internal/utils"
+	"nalakarsa/internal/model/user"
 	userrepository "nalakarsa/internal/repository/user"
+	"nalakarsa/internal/utils"
 
 	"github.com/google/uuid"
 )
@@ -51,7 +51,7 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	}
 
 	// Create user model
-	user := &model.User{
+	u := &user.User{
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
 		Role:         req.Role,
@@ -69,21 +69,21 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 		Industry:     req.Industry,
 	}
 
-	if err := s.userRepo.Create(user); err != nil {
+	if err := s.userRepo.Create(u); err != nil {
 		return nil, err
 	}
 
 	// Generate Tokens
-	accessTokenPayload, err := utils.GenerateAccessToken(user.ID, user.Email, user.Role, s.cfg.JWTSecret, s.cfg.JWTAccessExpiration)
+	accessTokenPayload, err := utils.GenerateAccessToken(u.ID, u.Email, u.Role, s.cfg.JWTSecret, s.cfg.JWTAccessExpiration)
 	if err != nil {
 		return nil, err
 	}
-	refreshTokenPayload, err := utils.GenerateRefreshToken(user.ID, s.cfg.JWTRefreshSecret, s.cfg.JWTRefreshExpiration)
+	refreshTokenPayload, err := utils.GenerateRefreshToken(u.ID, s.cfg.JWTRefreshSecret, s.cfg.JWTRefreshExpiration)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.saveRefreshTokenWithSessionMeta(user.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, ctx); err != nil {
+	if err := s.saveRefreshTokenWithSessionMeta(u.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, ctx); err != nil {
 		return nil, err
 	}
 
@@ -93,22 +93,22 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 		RefreshToken: refreshTokenPayload.Token,
 		ExpiresIn:    s.cfg.JWTAccessExpiration,
 		User: dto.UserResponse{
-			ID:          user.ID,
-			Email:       user.Email,
-			Role:        user.Role,
-			CreatedAt:   user.CreatedAt,
-			FirstName:   user.FirstName,
-			MiddleName:  user.MiddleName,
-			LastName:    user.LastName,
-			FullName:    user.FullName,
-			PrefixTitle: user.PrefixTitle,
-			SuffixTitle: user.SuffixTitle,
-			Affiliation: user.Affiliation,
-			Location:    user.Location,
-			Expertise:   user.Expertise,
-			Industry:    user.Industry,
-			Mission:     user.Mission,
-			AvatarURL:   user.AvatarURL,
+			ID:          u.ID,
+			Email:       u.Email,
+			Role:        u.Role,
+			CreatedAt:   u.CreatedAt,
+			FirstName:   u.FirstName,
+			MiddleName:  u.MiddleName,
+			LastName:    u.LastName,
+			FullName:    u.FullName,
+			PrefixTitle: u.PrefixTitle,
+			SuffixTitle: u.SuffixTitle,
+			Affiliation: u.Affiliation,
+			Location:    u.Location,
+			Expertise:   u.Expertise,
+			Industry:    u.Industry,
+			Mission:     u.Mission,
+			AvatarURL:   u.AvatarURL,
 		},
 	}, nil
 }
@@ -116,29 +116,29 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
-	user, err := s.userRepo.GetByEmail(req.Email)
+	u, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
+	if u == nil {
 		return nil, errors.New("invalid email or password")
 	}
 
 	// Check account status
-	if user.Status != "active" {
+	if u.Status != "active" {
 		return nil, errors.New("account is suspended")
 	}
 
 	// Verify password
-	if !utils.ComparePassword(user.PasswordHash, req.Password) {
+	if !utils.ComparePassword(u.PasswordHash, req.Password) {
 		return nil, errors.New("invalid email or password")
 	}
 
 	// Generate Access Token
 	accessTokenPayload, err := utils.GenerateAccessToken(
-		user.ID,
-		user.Email,
-		user.Role,
+		u.ID,
+		u.Email,
+		u.Role,
 		s.cfg.JWTSecret,
 		s.cfg.JWTAccessExpiration,
 	)
@@ -148,7 +148,7 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 
 	// Generate Refresh Token
 	refreshTokenPayload, err := utils.GenerateRefreshToken(
-		user.ID,
+		u.ID,
 		s.cfg.JWTRefreshSecret,
 		s.cfg.JWTRefreshExpiration,
 	)
@@ -156,7 +156,7 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 		return nil, err
 	}
 
-	if err := s.saveRefreshTokenWithSessionMeta(user.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, ctx); err != nil {
+	if err := s.saveRefreshTokenWithSessionMeta(u.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, ctx); err != nil {
 		return nil, err
 	}
 
@@ -166,22 +166,22 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 		RefreshToken: refreshTokenPayload.Token,
 		ExpiresIn:    s.cfg.JWTAccessExpiration,
 		User: dto.UserResponse{
-			ID:          user.ID,
-			Email:       user.Email,
-			Role:        user.Role,
-			CreatedAt:   user.CreatedAt,
-			FirstName:   user.FirstName,
-			MiddleName:  user.MiddleName,
-			LastName:    user.LastName,
-			FullName:    user.FullName,
-			PrefixTitle: user.PrefixTitle,
-			SuffixTitle: user.SuffixTitle,
-			Affiliation: user.Affiliation,
-			Location:    user.Location,
-			Expertise:   user.Expertise,
-			Industry:    user.Industry,
-			Mission:     user.Mission,
-			AvatarURL:   user.AvatarURL,
+			ID:          u.ID,
+			Email:       u.Email,
+			Role:        u.Role,
+			CreatedAt:   u.CreatedAt,
+			FirstName:   u.FirstName,
+			MiddleName:  u.MiddleName,
+			LastName:    u.LastName,
+			FullName:    u.FullName,
+			PrefixTitle: u.PrefixTitle,
+			SuffixTitle: u.SuffixTitle,
+			Affiliation: u.Affiliation,
+			Location:    u.Location,
+			Expertise:   u.Expertise,
+			Industry:    u.Industry,
+			Mission:     u.Mission,
+			AvatarURL:   u.AvatarURL,
 		},
 	}, nil
 }
@@ -203,19 +203,19 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 	}
 
 	// Get User details
-	user, err := s.userRepo.GetByID(rt.UserID)
+	u, err := s.userRepo.GetByID(rt.UserID)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
+	if u == nil {
 		return nil, errors.New("user not found")
 	}
 
 	// Generate new Access Token
 	accessTokenPayload, err := utils.GenerateAccessToken(
-		user.ID,
-		user.Email,
-		user.Role,
+		u.ID,
+		u.Email,
+		u.Role,
 		s.cfg.JWTSecret,
 		s.cfg.JWTAccessExpiration,
 	)
@@ -225,7 +225,7 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 
 	// Generate new Refresh Token (Refresh Token Rotation)
 	refreshTokenPayload, err := utils.GenerateRefreshToken(
-		user.ID,
+		u.ID,
 		s.cfg.JWTRefreshSecret,
 		s.cfg.JWTRefreshExpiration,
 	)
@@ -234,7 +234,7 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 	}
 
 	// Save new token first so we don't silently drop sessions on storage failure.
-	if err := s.saveRefreshTokenWithSessionMeta(user.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, s.withFallbackSessionContext(ctx, rt)); err != nil {
+	if err := s.saveRefreshTokenWithSessionMeta(u.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, s.withFallbackSessionContext(ctx, rt)); err != nil {
 		return nil, err
 	}
 
@@ -281,7 +281,7 @@ func (s *authService) saveRefreshTokenWithSessionMeta(
 		ipAddress = strings.TrimSpace(ctx.IPAddress)
 	}
 
-	refreshToken := &model.RefreshToken{
+	refreshToken := &user.RefreshToken{
 		UserID:     userID,
 		Token:      token,
 		ExpiresAt:  expiresAt,
@@ -295,7 +295,7 @@ func (s *authService) saveRefreshTokenWithSessionMeta(
 
 func (s *authService) withFallbackSessionContext(
 	ctx *dto.AuthRequestContext,
-	legacy *model.RefreshToken,
+	legacy *user.RefreshToken,
 ) *dto.AuthRequestContext {
 	fallback := &dto.AuthRequestContext{}
 	if ctx != nil {

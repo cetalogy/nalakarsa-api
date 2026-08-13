@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/notification"
+	"nalakarsa/internal/model/project"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	conversationrepository "nalakarsa/internal/repository/conversation"
 	notificationrepository "nalakarsa/internal/repository/notification"
@@ -120,7 +121,7 @@ func (s *dashboardService) GetDashboardNotifications(userID uuid.UUID, page, lim
 	return recentActivity, total, nil
 }
 
-func (s *dashboardService) toDashboardProjectItem(p model.Project, userID uuid.UUID) dto.DashboardProjectItem {
+func (s *dashboardService) toDashboardProjectItem(p project.Project, userID uuid.UUID) dto.DashboardProjectItem {
 	item := dto.DashboardProjectItem{
 		ID:       p.ID.String(),
 		Title:    p.Title,
@@ -146,7 +147,7 @@ func (s *dashboardService) toDashboardProjectItem(p model.Project, userID uuid.U
 	return item
 }
 
-func (s *dashboardService) toNotificationResponse(n model.Notification) dto.NotificationResponse {
+func (s *dashboardService) toNotificationResponse(n notification.Notification) dto.NotificationResponse {
 	actorName := ""
 	if n.Actor != nil {
 		actorName = n.Actor.FullName

@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/discussion"
 	discussionrepository "nalakarsa/internal/repository/discussion"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -35,13 +35,13 @@ func NewDiscussionService(discRepo discussionrepository.DiscussionRepository, us
 }
 
 func (s *discussionService) Create(userID uuid.UUID, req dto.CreateDiscussionRequest) (uuid.UUID, error) {
-	disc := &model.Discussion{
-		UserID:   userID,
-		Title:    req.Title,
+	disc := &discussion.Discussion{
+		UserID:      userID,
+		Title:       req.Title,
 		Description: req.Description,
-		Category: req.Category,
-		Tags:     req.Tags,
-		Status:   "open",
+		Category:    req.Category,
+		Tags:        req.Tags,
+		Status:      "open",
 	}
 
 	if err := s.discRepo.Create(disc); err != nil {
@@ -209,7 +209,7 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 		return nil, errors.New("discussion not found")
 	}
 
-	reply := &model.DiscussionReply{
+	reply := &discussion.DiscussionReply{
 		DiscussionID: discussionID,
 		UserID:       userID,
 		ParentID:     req.ParentID,
@@ -221,7 +221,7 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 	}
 
 	// Fetch user details for response
-	user, err := s.userRepo.GetByID(userID)
+	u, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -232,10 +232,10 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 		ParentID:  reply.ParentID,
 		CreatedAt: reply.CreatedAt,
 		Creator: dto.DiscussionCreator{
-			ID:        user.ID,
-			FullName:  user.FullName,
-			Role:      user.Role,
-			AvatarURL: user.AvatarURL,
+			ID:        u.ID,
+			FullName:  u.FullName,
+			Role:      u.Role,
+			AvatarURL: u.AvatarURL,
 		},
 	}, nil
 }
@@ -263,7 +263,7 @@ func (s *discussionService) DeleteReply(userID uuid.UUID, replyID uuid.UUID) err
 	return s.discRepo.DeleteReply(replyID)
 }
 
-func (s *discussionService) toDiscussionReplyResponse(r model.DiscussionReply) dto.DiscussionReplyResponse {
+func (s *discussionService) toDiscussionReplyResponse(r discussion.DiscussionReply) dto.DiscussionReplyResponse {
 	return dto.DiscussionReplyResponse{
 		ID:        r.ID,
 		Content:   r.Content,
@@ -278,7 +278,7 @@ func (s *discussionService) toDiscussionReplyResponse(r model.DiscussionReply) d
 	}
 }
 
-func (s *discussionService) toDiscussionReplyResponses(replies []model.DiscussionReply) []dto.DiscussionReplyResponse {
+func (s *discussionService) toDiscussionReplyResponses(replies []discussion.DiscussionReply) []dto.DiscussionReplyResponse {
 	res := make([]dto.DiscussionReplyResponse, len(replies))
 	for i, r := range replies {
 		res[i] = s.toDiscussionReplyResponse(r)
@@ -305,7 +305,7 @@ func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error
 		return errors.New("already upvoted this discussion")
 	}
 
-	vote := &model.DiscussionVote{
+	vote := &discussion.DiscussionVote{
 		UserID:       userID,
 		DiscussionID: discussionID,
 	}

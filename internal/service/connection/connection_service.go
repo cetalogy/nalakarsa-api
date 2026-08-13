@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/connection"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -49,11 +49,11 @@ func (s *connectionService) ListConnections(userID uuid.UUID, page, limit int) (
 			Status:    c.Status,
 			CreatedAt: c.CreatedAt,
 			User: dto.ConnectionUserResponse{
-				ID:        other.ID,
-				FullName:  other.FullName,
-				Role:      other.Role,
+				ID:          other.ID,
+				FullName:    other.FullName,
+				Role:        other.Role,
 				Affiliation: other.Affiliation,
-				AvatarURL: other.AvatarURL,
+				AvatarURL:   other.AvatarURL,
 			},
 		}
 	}
@@ -79,11 +79,11 @@ func (s *connectionService) ListRequests(userID uuid.UUID, requestType string, p
 			Status:    c.Status,
 			CreatedAt: c.CreatedAt,
 			User: dto.ConnectionUserResponse{
-				ID:        other.ID,
-				FullName:  other.FullName,
-				Role:      other.Role,
+				ID:          other.ID,
+				FullName:    other.FullName,
+				Role:        other.Role,
 				Affiliation: other.Affiliation,
-				AvatarURL: other.AvatarURL,
+				AvatarURL:   other.AvatarURL,
 			},
 		}
 	}
@@ -120,7 +120,7 @@ func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnection
 		}
 	}
 
-	conn := &model.Connection{
+	conn := &connection.Connection{
 		RequesterID: userID,
 		AddresseeID: req.TargetUserID,
 		Status:      "pending",

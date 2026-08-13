@@ -1,7 +1,9 @@
-package model
+package project
 
 import (
 	"time"
+
+	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 )
@@ -18,5 +20,5 @@ type ProjectMilestone struct {
 	UpdatedAt   time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	// Relations
-	Assignee *User `gorm:"foreignKey:AssigneeID;constraint:OnDelete:SET NULL"`
+	Assignee *user.User `gorm:"foreignKey:AssigneeID;constraint:OnDelete:SET NULL"`
 }
