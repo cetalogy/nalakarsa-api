@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/project"
 	discussionrepository "nalakarsa/internal/repository/discussion"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
@@ -39,24 +39,24 @@ func NewProjectService(projRepo projectrepository.ProjectRepository, userRepo us
 }
 
 func (s *projectService) Create(userID uuid.UUID, req dto.CreateProjectRequest) (uuid.UUID, error) {
-	project := &model.Project{
+	p := &project.Project{
 		OwnerID:       userID,
 		Title:         req.Title,
 		Description:   req.Description,
 		Category:      req.Category,
 		Status:        "draft",
-		Needs:  req.Needs,
+		Needs:         req.Needs,
 		FundingStatus: req.FundingStatus,
 		Location:      req.Location,
 		Deadline:      req.Deadline,
 		Progress:      0,
 	}
 
-	if err := s.projRepo.Create(project); err != nil {
+	if err := s.projRepo.Create(p); err != nil {
 		return uuid.Nil, err
 	}
 
-	return project.ID, nil
+	return p.ID, nil
 }
 
 func (s *projectService) CreateFromDiscussion(userID uuid.UUID, discussionID uuid.UUID) (uuid.UUID, error) {
@@ -68,50 +68,50 @@ func (s *projectService) CreateFromDiscussion(userID uuid.UUID, discussionID uui
 		return uuid.Nil, errors.New("discussion not found")
 	}
 
-	project := &model.Project{
-		OwnerID:       userID,
-		Title:         disc.Title,
-		Description:   disc.Description,
-		Category:      disc.Category,
-		Status:        "draft",
-		Needs:       "Praktisi", // Default or map it somehow
+	p := &project.Project{
+		OwnerID:            userID,
+		Title:              disc.Title,
+		Description:        disc.Description,
+		Category:           disc.Category,
+		Status:             "draft",
+		Needs:              "Praktisi", // Default or map it somehow
 		FundingStatus:      "Belum Ada",
 		Location:           "Remote",
 		Progress:           0,
 		SourceDiscussionID: &discussionID,
 	}
 
-	if err := s.projRepo.Create(project); err != nil {
+	if err := s.projRepo.Create(p); err != nil {
 		return uuid.Nil, err
 	}
 
-	return project.ID, nil
+	return p.ID, nil
 }
 
 func (s *projectService) GetByID(id uuid.UUID) (*dto.ProjectDetailResponse, error) {
-	project, err := s.projRepo.GetByID(id)
+	p, err := s.projRepo.GetByID(id)
 	if err != nil {
 		return nil, err
 	}
-	if project == nil {
+	if p == nil {
 		return nil, errors.New("project not found")
 	}
 
-	members := make([]dto.ProjectMemberResponse, len(project.Members))
-	for i, m := range project.Members {
+	members := make([]dto.ProjectMemberResponse, len(p.Members))
+	for i, m := range p.Members {
 		members[i] = dto.ProjectMemberResponse{
-			ID:          m.ID,
-			UserID:      m.UserID,
-			FullName:    m.User.FullName,
-			Role:        m.Role,
-			Status:      m.Status,
-			JoinedAt:    m.JoinedAt,
-			AvatarURL:   m.User.AvatarURL,
+			ID:        m.ID,
+			UserID:    m.UserID,
+			FullName:  m.User.FullName,
+			Role:      m.Role,
+			Status:    m.Status,
+			JoinedAt:  m.JoinedAt,
+			AvatarURL: m.User.AvatarURL,
 		}
 	}
 
-	milestones := make([]dto.ProjectMilestoneResponse, len(project.Milestones))
-	for i, ms := range project.Milestones {
+	milestones := make([]dto.ProjectMilestoneResponse, len(p.Milestones))
+	for i, ms := range p.Milestones {
 		milestones[i] = dto.ProjectMilestoneResponse{
 			ID:          ms.ID,
 			Title:       ms.Title,
@@ -124,7 +124,7 @@ func (s *projectService) GetByID(id uuid.UUID) (*dto.ProjectDetailResponse, erro
 	}
 
 	return &dto.ProjectDetailResponse{
-		ProjectResponse: toProjectResponse(project),
+		ProjectResponse: toProjectResponse(p),
 		Members:         members,
 		Milestones:      milestones,
 	}, nil
@@ -145,43 +145,43 @@ func (s *projectService) List(search, status, category string, page, limit int) 
 }
 
 func (s *projectService) Update(userID uuid.UUID, id uuid.UUID, req dto.UpdateProjectRequest) error {
-	project, err := s.projRepo.GetByID(id)
+	p, err := s.projRepo.GetByID(id)
 	if err != nil {
 		return err
 	}
-	if project == nil {
+	if p == nil {
 		return errors.New("project not found")
 	}
 
-	if project.OwnerID != userID {
+	if p.OwnerID != userID {
 		return errors.New("unauthorized to update this project")
 	}
 
-	project.Title = req.Title
-	project.Description = req.Description
-	project.Category = req.Category
-	project.Status = req.Status
-	project.Needs = req.Needs
-	project.FundingStatus = req.FundingStatus
-	project.Location = req.Location
-	project.Deadline = req.Deadline
+	p.Title = req.Title
+	p.Description = req.Description
+	p.Category = req.Category
+	p.Status = req.Status
+	p.Needs = req.Needs
+	p.FundingStatus = req.FundingStatus
+	p.Location = req.Location
+	p.Deadline = req.Deadline
 	if req.Progress != nil {
-		project.Progress = *req.Progress
+		p.Progress = *req.Progress
 	}
 
-	return s.projRepo.Update(project)
+	return s.projRepo.Update(p)
 }
 
 func (s *projectService) Delete(userID uuid.UUID, id uuid.UUID) error {
-	project, err := s.projRepo.GetByID(id)
+	p, err := s.projRepo.GetByID(id)
 	if err != nil {
 		return err
 	}
-	if project == nil {
+	if p == nil {
 		return errors.New("project not found")
 	}
 
-	if project.OwnerID != userID {
+	if p.OwnerID != userID {
 		return errors.New("unauthorized to delete this project")
 	}
 
@@ -189,23 +189,23 @@ func (s *projectService) Delete(userID uuid.UUID, id uuid.UUID) error {
 }
 
 func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.ApplyProjectRequest) (uuid.UUID, error) {
-	project, err := s.projRepo.GetByID(projectID)
+	p, err := s.projRepo.GetByID(projectID)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if project == nil {
+	if p == nil {
 		return uuid.Nil, errors.New("project not found")
 	}
 
-	if project.OwnerID == userID {
+	if p.OwnerID == userID {
 		return uuid.Nil, errors.New("cannot apply to your own project")
 	}
 
-	if project.Status != "open" {
+	if p.Status != "open" {
 		return uuid.Nil, errors.New("project is not open for applications")
 	}
 
-	app := &model.ProjectApplication{
+	app := &project.ProjectApplication{
 		ProjectID:   projectID,
 		ApplicantID: userID,
 		Message:     req.Message,
@@ -220,15 +220,15 @@ func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.Ap
 }
 
 func (s *projectService) ListApplications(userID uuid.UUID, projectID uuid.UUID) ([]dto.ProjectApplicationResponse, error) {
-	project, err := s.projRepo.GetByID(projectID)
+	p, err := s.projRepo.GetByID(projectID)
 	if err != nil {
 		return nil, err
 	}
-	if project == nil {
+	if p == nil {
 		return nil, errors.New("project not found")
 	}
 
-	if project.OwnerID != userID {
+	if p.OwnerID != userID {
 		return nil, errors.New("unauthorized to view applications for this project")
 	}
 
@@ -245,12 +245,12 @@ func (s *projectService) ListApplications(userID uuid.UUID, projectID uuid.UUID)
 			Status:    a.Status,
 			CreatedAt: a.CreatedAt,
 			Applicant: dto.ApplicantResponse{
-				ID:          a.Applicant.ID,
-				FullName:    a.Applicant.FullName,
-				Role:        a.Applicant.Role,
-				Afiliasi:    a.Applicant.Affiliation,
-				Lokasi:      a.Applicant.Location,
-				AvatarURL:   a.Applicant.AvatarURL,
+				ID:        a.Applicant.ID,
+				FullName:  a.Applicant.FullName,
+				Role:      a.Applicant.Role,
+				Afiliasi:  a.Applicant.Affiliation,
+				Lokasi:    a.Applicant.Location,
+				AvatarURL: a.Applicant.AvatarURL,
 			},
 		}
 	}
@@ -259,15 +259,15 @@ func (s *projectService) ListApplications(userID uuid.UUID, projectID uuid.UUID)
 }
 
 func (s *projectService) UpdateApplicationStatus(userID uuid.UUID, projectID uuid.UUID, appID uuid.UUID, req dto.UpdateApplicationStatusRequest) error {
-	project, err := s.projRepo.GetByID(projectID)
+	p, err := s.projRepo.GetByID(projectID)
 	if err != nil {
 		return err
 	}
-	if project == nil {
+	if p == nil {
 		return errors.New("project not found")
 	}
 
-	if project.OwnerID != userID {
+	if p.OwnerID != userID {
 		return errors.New("unauthorized to manage applications for this project")
 	}
 
@@ -287,7 +287,7 @@ func (s *projectService) UpdateApplicationStatus(userID uuid.UUID, projectID uui
 
 	// If accepted, add as project member
 	if req.Status == "accepted" {
-		member := &model.ProjectMember{
+		member := &project.ProjectMember{
 			ProjectID: projectID,
 			UserID:    app.ApplicantID,
 			Role:      "member",
@@ -309,13 +309,13 @@ func (s *projectService) ListMembers(projectID uuid.UUID) ([]dto.ProjectMemberRe
 	res := make([]dto.ProjectMemberResponse, len(members))
 	for i, m := range members {
 		res[i] = dto.ProjectMemberResponse{
-			ID:          m.ID,
-			UserID:      m.UserID,
-			FullName:    m.User.FullName,
-			Role:        m.Role,
-			Status:      m.Status,
-			JoinedAt:    m.JoinedAt,
-			AvatarURL:   m.User.AvatarURL,
+			ID:        m.ID,
+			UserID:    m.UserID,
+			FullName:  m.User.FullName,
+			Role:      m.Role,
+			Status:    m.Status,
+			JoinedAt:  m.JoinedAt,
+			AvatarURL: m.User.AvatarURL,
 		}
 	}
 
@@ -323,19 +323,19 @@ func (s *projectService) ListMembers(projectID uuid.UUID) ([]dto.ProjectMemberRe
 }
 
 func (s *projectService) CreateMilestone(userID uuid.UUID, projectID uuid.UUID, req dto.CreateMilestoneRequest) (uuid.UUID, error) {
-	project, err := s.projRepo.GetByID(projectID)
+	p, err := s.projRepo.GetByID(projectID)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if project == nil {
+	if p == nil {
 		return uuid.Nil, errors.New("project not found")
 	}
 
-	if project.OwnerID != userID {
+	if p.OwnerID != userID {
 		return uuid.Nil, errors.New("unauthorized to create milestones for this project")
 	}
 
-	milestone := &model.ProjectMilestone{
+	milestone := &project.ProjectMilestone{
 		ProjectID:  projectID,
 		Title:      req.Title,
 		DueAt:      req.DueAt,
@@ -351,15 +351,15 @@ func (s *projectService) CreateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 }
 
 func (s *projectService) UpdateMilestone(userID uuid.UUID, projectID uuid.UUID, milestoneID uuid.UUID, req dto.UpdateMilestoneRequest) error {
-	project, err := s.projRepo.GetByID(projectID)
+	p, err := s.projRepo.GetByID(projectID)
 	if err != nil {
 		return err
 	}
-	if project == nil {
+	if p == nil {
 		return errors.New("project not found")
 	}
 
-	if project.OwnerID != userID {
+	if p.OwnerID != userID {
 		return errors.New("unauthorized to update milestones for this project")
 	}
 
@@ -384,7 +384,7 @@ func (s *projectService) UpdateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 	return s.projRepo.UpdateMilestone(milestone)
 }
 
-func toProjectResponse(p *model.Project) dto.ProjectResponse {
+func toProjectResponse(p *project.Project) dto.ProjectResponse {
 	return dto.ProjectResponse{
 		ID:                 p.ID,
 		Title:              p.Title,

@@ -4,7 +4,8 @@ import (
 	"errors"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/project"
+	"nalakarsa/internal/model/user"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
@@ -41,23 +42,23 @@ func NewUserService(
 }
 
 func (s *userService) GetProfile(userID uuid.UUID) (*dto.UserResponse, error) {
-	user, err := s.userRepo.GetByID(userID)
+	u, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
+	if u == nil {
 		return nil, errors.New("user not found")
 	}
 
-	return toUserResponse(user), nil
+	return toUserResponse(u), nil
 }
 
 func (s *userService) GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsResponse, error) {
-	user, err := s.userRepo.GetByID(userID)
+	u, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
+	if u == nil {
 		return nil, errors.New("user not found")
 	}
 
@@ -69,7 +70,7 @@ func (s *userService) GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsR
 	projCount, _ := s.projRepo.CountByOwner(userID, "")
 	discCount, _ := s.userRepo.CountDiscussions(userID)
 
-	profile := toUserResponse(user)
+	profile := toUserResponse(u)
 	return &dto.UserProfileStatsResponse{
 		UserResponse: *profile,
 		Stats: dto.ProfileStats{
@@ -85,8 +86,8 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 	if fullName == "" {
 		fullName = req.FirstName + " " + req.LastName
 	}
-	
-	user := &model.User{
+
+	u := &user.User{
 		ID:          userID,
 		FirstName:   req.FirstName,
 		MiddleName:  &req.MiddleName,
@@ -103,7 +104,7 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		AvatarURL:   req.AvatarURL,
 	}
 
-	return s.userRepo.UpdateProfile(user)
+	return s.userRepo.UpdateProfile(u)
 }
 
 func (s *userService) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
@@ -132,14 +133,14 @@ func (s *userService) GetMyProjects(userID uuid.UUID) (*dto.MyProjectsResponse, 
 
 	res := make([]dto.ProjectResponse, len(projects))
 	for i, p := range projects {
-		project := toProjectResponse(p)
-		if project.Initiator == "" {
+		projRes := toProjectResponse(p)
+		if projRes.Initiator == "" {
 			owner, err := s.userRepo.GetByID(p.OwnerID)
 			if err == nil && owner != nil {
-				project.Initiator = owner.FullName
+				projRes.Initiator = owner.FullName
 			}
 		}
-		res[i] = project
+		res[i] = projRes
 	}
 
 	return &dto.MyProjectsResponse{
@@ -149,11 +150,11 @@ func (s *userService) GetMyProjects(userID uuid.UUID) (*dto.MyProjectsResponse, 
 }
 
 func (s *userService) GetMyStats(userID uuid.UUID) (*dto.UserStatsResponse, error) {
-	user, err := s.userRepo.GetByID(userID)
+	u, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
+	if u == nil {
 		return nil, errors.New("user not found")
 	}
 
@@ -165,11 +166,11 @@ func (s *userService) GetMyStats(userID uuid.UUID) (*dto.UserStatsResponse, erro
 		ConnectionCount: connCount,
 		ProjectCount:    projCount,
 		DiscussionCount: discCount,
-		ViewCount:       int64(user.ViewCount),
+		ViewCount:       int64(u.ViewCount),
 	}, nil
 }
 
-func toUserResponse(u *model.User) *dto.UserResponse {
+func toUserResponse(u *user.User) *dto.UserResponse {
 	middleName := ""
 	if u.MiddleName != nil {
 		middleName = *u.MiddleName
@@ -194,7 +195,7 @@ func toUserResponse(u *model.User) *dto.UserResponse {
 	}
 }
 
-func toProjectResponse(p model.Project) dto.ProjectResponse {
+func toProjectResponse(p project.Project) dto.ProjectResponse {
 	return dto.ProjectResponse{
 		ID:                 p.ID,
 		Title:              p.Title,

@@ -7,7 +7,13 @@ import (
 	"time"
 
 	"nalakarsa/internal/config"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/connection"
+	"nalakarsa/internal/model/conversation"
+	"nalakarsa/internal/model/discussion"
+	"nalakarsa/internal/model/homepage"
+	"nalakarsa/internal/model/notification"
+	"nalakarsa/internal/model/project"
+	"nalakarsa/internal/model/user"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -77,37 +83,38 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	log.Println("Running database migrations...")
 	err = db.AutoMigrate(
 		// Core
-		&model.User{},
+		&user.User{},
 
-		&model.RefreshToken{},
+		&user.RefreshToken{},
 
 		// Discussions
-		&model.Discussion{},
-		&model.DiscussionReply{},
-		&model.DiscussionVote{},
+		&discussion.Discussion{},
+		&discussion.DiscussionReply{},
+		&discussion.DiscussionVote{},
 
 		// Connections
-		&model.Connection{},
+		&connection.Connection{},
 
 		// Projects
-		&model.Project{},
-		&model.ProjectMember{},
-		&model.ProjectApplication{},
-		&model.ProjectMilestone{},
+		&project.Project{},
+		&project.ProjectMember{},
+		&project.ProjectApplication{},
+		&project.ProjectMilestone{},
 
 		// Chat
-		&model.Conversation{},
-		&model.ConversationMember{},
-		&model.Message{},
+		&conversation.Conversation{},
+		&conversation.ConversationMember{},
+		&conversation.Message{},
 
 		// Notifications
-		&model.Notification{},
+		&notification.Notification{},
 
 		// Homepage (landing content)
-		&model.HomepageHero{},
-		&model.HomepageSection{},
-		&model.HomepageTestimonial{},
+		&homepage.HomepageHero{},
+		&homepage.HomepageSection{},
+		&homepage.HomepageTestimonial{},
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}

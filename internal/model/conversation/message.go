@@ -1,7 +1,9 @@
-package model
+package conversation
 
 import (
 	"time"
+
+	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -20,5 +22,5 @@ type Message struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index"`
 
 	// Relations
-	Sender User `gorm:"foreignKey:SenderID;constraint:OnDelete:CASCADE"`
+	Sender user.User `gorm:"foreignKey:SenderID;constraint:OnDelete:CASCADE"`
 }

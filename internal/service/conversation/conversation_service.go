@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model"
+	"nalakarsa/internal/model/conversation"
+	"nalakarsa/internal/model/user"
 	conversationrepository "nalakarsa/internal/repository/conversation"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -54,7 +55,7 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	}
 
 	// Create new conversation
-	conv := &model.Conversation{
+	conv := &conversation.Conversation{
 		Type: "direct",
 	}
 	if err := s.convRepo.Create(conv); err != nil {
@@ -62,10 +63,10 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	}
 
 	// Add both members
-	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: userID}); err != nil {
+	if err := s.convRepo.AddMember(&conversation.ConversationMember{ConversationID: conv.ID, UserID: userID}); err != nil {
 		return nil, err
 	}
-	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: req.TargetUserID}); err != nil {
+	if err := s.convRepo.AddMember(&conversation.ConversationMember{ConversationID: conv.ID, UserID: req.TargetUserID}); err != nil {
 		return nil, err
 	}
 
@@ -104,10 +105,10 @@ func (s *conversationService) resolveTargetUserID(name, role string) (uuid.UUID,
 		return uuid.Nil, errors.New("target user not found")
 	}
 
-	candidates := make([]model.User, 0, len(users))
-	for _, user := range users {
-		if strings.EqualFold(strings.TrimSpace(user.FullName), cleanName) {
-			candidates = append(candidates, user)
+	candidates := make([]user.User, 0, len(users))
+	for _, u := range users {
+		if strings.EqualFold(strings.TrimSpace(u.FullName), cleanName) {
+			candidates = append(candidates, u)
 		}
 	}
 
@@ -194,7 +195,7 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 	if text == "" {
 		text = req.Body // fallback
 	}
-	msg := &model.Message{
+	msg := &conversation.Message{
 		ConversationID: conversationID,
 		SenderID:       userID,
 		Body:           text,
@@ -241,7 +242,7 @@ func (s *conversationService) MarkRead(userID uuid.UUID, conversationID uuid.UUI
 	return s.convRepo.UpdateLastRead(conversationID, userID, messages[0].ID)
 }
 
-func (s *conversationService) buildConversationResponse(conv *model.Conversation, currentUserID uuid.UUID) (*dto.ConversationResponse, error) {
+func (s *conversationService) buildConversationResponse(conv *conversation.Conversation, currentUserID uuid.UUID) (*dto.ConversationResponse, error) {
 	// Find the other participant
 	var name, role, avatar string
 	for _, m := range conv.Members {

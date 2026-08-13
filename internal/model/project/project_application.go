@@ -1,7 +1,9 @@
-package model
+package project
 
 import (
 	"time"
+
+	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -18,5 +20,5 @@ type ProjectApplication struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
 
 	// Relations
-	Applicant User `gorm:"foreignKey:ApplicantID;constraint:OnDelete:CASCADE"`
+	Applicant user.User `gorm:"foreignKey:ApplicantID;constraint:OnDelete:CASCADE"`
 }

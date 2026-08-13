@@ -1,7 +1,9 @@
-package model
+package connection
 
 import (
 	"time"
+
+	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 )
@@ -18,6 +20,6 @@ type Connection struct {
 	UpdatedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	// Relations
-	Requester User `gorm:"foreignKey:RequesterID;constraint:OnDelete:CASCADE"`
-	Addressee User `gorm:"foreignKey:AddresseeID;constraint:OnDelete:CASCADE"`
+	Requester user.User `gorm:"foreignKey:RequesterID;constraint:OnDelete:CASCADE"`
+	Addressee user.User `gorm:"foreignKey:AddresseeID;constraint:OnDelete:CASCADE"`
 }
