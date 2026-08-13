@@ -77,62 +77,62 @@ func resolveTransactionName(method, path string) string {
 	switch {
 	// Auth Module
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/login"):
-		return "🔐 [USER LOGIN]"
+		return "[USER LOGIN]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/register"):
-		return "👤 [USER REGISTER]"
+		return "[USER REGISTER]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/refresh"):
-		return "🔄 [REFRESH TOKEN]"
+		return "[REFRESH TOKEN]"
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/auth/me"):
-		return "👤 [GET CURRENT USER]"
+		return "[GET CURRENT USER]"
 
 	// Discussion Module
 	case method == "POST" && strings.Contains(cleanPath, "/collaboration"):
-		return "🤝 [MARK COLLABORATION]"
+		return "[MARK COLLABORATION]"
 	case method == "POST" && strings.Contains(cleanPath, "/votes"):
-		return "👍 [UPVOTE DISCUSSION]"
+		return "[UPVOTE DISCUSSION]"
 	case method == "DELETE" && strings.Contains(cleanPath, "/votes"):
-		return "👎 [UNVOTE DISCUSSION]"
+		return "[UNVOTE DISCUSSION]"
 	case method == "POST" && strings.Contains(cleanPath, "/replies"):
-		return "💬 [ADD REPLY]"
+		return "[ADD REPLY]"
 	case method == "DELETE" && strings.Contains(cleanPath, "/replies"):
-		return "🗑️ [DELETE REPLY]"
+		return "[DELETE REPLY]"
 	case method == "GET" && strings.Contains(cleanPath, "/replies"):
-		return "💬 [GET REPLIES]"
+		return "[GET REPLIES]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/discussions"):
-		return "📝 [CREATE DISCUSSION]"
+		return "[CREATE DISCUSSION]"
 	case method == "PATCH" && strings.HasPrefix(cleanPath, "/api/v1/discussions"):
-		return "✏️ [UPDATE DISCUSSION]"
+		return "[UPDATE DISCUSSION]"
 	case method == "DELETE" && strings.HasPrefix(cleanPath, "/api/v1/discussions"):
-		return "🗑️ [DELETE DISCUSSION]"
+		return "[DELETE DISCUSSION]"
 	case method == "GET" && cleanPath == "/api/v1/discussions":
-		return "💬 [LIST DISCUSSIONS]"
+		return "[LIST DISCUSSIONS]"
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/discussions/"):
-		return "🔍 [GET DISCUSSION DETAIL]"
+		return "[GET DISCUSSION DETAIL]"
 
 	// Project Module
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/projects"):
-		return "🚀 [PROJECT SERVICE]"
+		return "[PROJECT SERVICE]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/projects"):
-		return "🚀 [CREATE PROJECT]"
+		return "[CREATE PROJECT]"
 
 	// User / Connection / Conversation / Notification / Homepage
 	case strings.HasPrefix(cleanPath, "/api/v1/users"):
-		return "👤 [USER PROFILE]"
+		return "[USER PROFILE]"
 	case strings.HasPrefix(cleanPath, "/api/v1/connections"):
-		return "👥 [CONNECTION SERVICE]"
+		return "[CONNECTION SERVICE]"
 	case strings.HasPrefix(cleanPath, "/api/v1/conversations"):
-		return "💬 [CHAT CONVERSATION]"
+		return "[CHAT CONVERSATION]"
 	case strings.HasPrefix(cleanPath, "/api/v1/notifications"):
-		return "🔔 [NOTIFICATION SERVICE]"
+		return "[NOTIFICATION SERVICE]"
 	case strings.HasPrefix(cleanPath, "/api/v1/homepage"):
-		return "🏠 [HOMEPAGE LANDING]"
+		return "[HOMEPAGE LANDING]"
 
 	// Health check
 	case cleanPath == "/" || cleanPath == "/health":
-		return "🟢 [HEALTH CHECK]"
+		return "[HEALTH CHECK]"
 
 	default:
-		return fmt.Sprintf("🌐 [%s]", method)
+		return fmt.Sprintf("[%s]", method)
 	}
 }
 

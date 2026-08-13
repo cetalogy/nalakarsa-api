@@ -50,7 +50,12 @@ func ErrorJSONResponseWithMessage(c *gin.Context, statusCode int, message string
 	case 401:
 		code = "UNAUTHORIZED"
 		details["reason"] = message
-		details["suggestion"] = "Provide a valid JWT token in Authorization header or perform a login/token refresh"
+		msgLower := strings.ToLower(message)
+		if strings.Contains(msgLower, "email") || strings.Contains(msgLower, "password") || strings.Contains(msgLower, "credential") {
+			details["suggestion"] = "Please check your email address and password, or register a new account"
+		} else {
+			details["suggestion"] = "Provide a valid JWT token in Authorization header or perform a login/token refresh"
+		}
 	case 403:
 		code = "FORBIDDEN"
 		details["reason"] = message
