@@ -4,8 +4,7 @@ import (
 	"errors"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model/project"
-	"nalakarsa/internal/model/user"
+	"nalakarsa/internal/model"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
@@ -87,7 +86,7 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		fullName = req.FirstName + " " + req.LastName
 	}
 
-	u := &user.User{
+	u := &model.User{
 		ID:          userID,
 		FirstName:   req.FirstName,
 		MiddleName:  &req.MiddleName,
@@ -170,7 +169,7 @@ func (s *userService) GetMyStats(userID uuid.UUID) (*dto.UserStatsResponse, erro
 	}, nil
 }
 
-func toUserResponse(u *user.User) *dto.UserResponse {
+func toUserResponse(u *model.User) *dto.UserResponse {
 	middleName := ""
 	if u.MiddleName != nil {
 		middleName = *u.MiddleName
@@ -195,7 +194,7 @@ func toUserResponse(u *user.User) *dto.UserResponse {
 	}
 }
 
-func toProjectResponse(p project.Project) dto.ProjectResponse {
+func toProjectResponse(p model.Project) dto.ProjectResponse {
 	return dto.ProjectResponse{
 		ID:                 p.ID,
 		Title:              p.Title,

@@ -3,19 +3,19 @@ package connectionrepository
 import (
 	"errors"
 
-	"nalakarsa/internal/model/connection"
+	"nalakarsa/internal/model"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ConnectionRepository interface {
-	Create(conn *connection.Connection) error
-	GetByID(id uuid.UUID) (*connection.Connection, error)
-	GetByPair(userA, userB uuid.UUID) (*connection.Connection, error)
-	ListConnections(userID uuid.UUID, page, limit int) ([]connection.Connection, int64, error)
-	ListRequests(userID uuid.UUID, requestType string, page, limit int) ([]connection.Connection, int64, error)
-	Update(conn *connection.Connection) error
+	Create(conn *model.Connection) error
+	GetByID(id uuid.UUID) (*model.Connection, error)
+	GetByPair(userA, userB uuid.UUID) (*model.Connection, error)
+	ListConnections(userID uuid.UUID, page, limit int) ([]model.Connection, int64, error)
+	ListRequests(userID uuid.UUID, requestType string, page, limit int) ([]model.Connection, int64, error)
+	Update(conn *model.Connection) error
 	Delete(id uuid.UUID) error
 	CountAccepted(userID uuid.UUID) (int64, error)
 	CountMutual(userA, userB uuid.UUID) (int64, error)
@@ -29,12 +29,12 @@ func NewConnectionRepository(db *gorm.DB) ConnectionRepository {
 	return &pgConnectionRepository{db: db}
 }
 
-func (r *pgConnectionRepository) Create(conn *connection.Connection) error {
+func (r *pgConnectionRepository) Create(conn *model.Connection) error {
 	return r.db.Create(conn).Error
 }
 
-func (r *pgConnectionRepository) GetByID(id uuid.UUID) (*connection.Connection, error) {
-	var conn connection.Connection
+func (r *pgConnectionRepository) GetByID(id uuid.UUID) (*model.Connection, error) {
+	var conn model.Connection
 	err := r.db.Preload("Requester").Preload("Addressee").
 		Where("id = ?", id).First(&conn).Error
 	if err != nil {
@@ -46,8 +46,8 @@ func (r *pgConnectionRepository) GetByID(id uuid.UUID) (*connection.Connection, 
 	return &conn, nil
 }
 
-func (r *pgConnectionRepository) GetByPair(userA, userB uuid.UUID) (*connection.Connection, error) {
-	var conn connection.Connection
+func (r *pgConnectionRepository) GetByPair(userA, userB uuid.UUID) (*model.Connection, error) {
+	var conn model.Connection
 	err := r.db.Where(
 		"(requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)",
 		userA, userB, userB, userA,
@@ -61,11 +61,11 @@ func (r *pgConnectionRepository) GetByPair(userA, userB uuid.UUID) (*connection.
 	return &conn, nil
 }
 
-func (r *pgConnectionRepository) ListConnections(userID uuid.UUID, page, limit int) ([]connection.Connection, int64, error) {
-	var conns []connection.Connection
+func (r *pgConnectionRepository) ListConnections(userID uuid.UUID, page, limit int) ([]model.Connection, int64, error) {
+	var conns []model.Connection
 	var total int64
 
-	query := r.db.Model(&connection.Connection{}).
+	query := r.db.Model(&model.Connection{}).
 		Preload("Requester").Preload("Addressee").
 		Where("status = 'accepted' AND (requester_id = ? OR addressee_id = ?)", userID, userID)
 
@@ -78,11 +78,11 @@ func (r *pgConnectionRepository) ListConnections(userID uuid.UUID, page, limit i
 	return conns, total, err
 }
 
-func (r *pgConnectionRepository) ListRequests(userID uuid.UUID, requestType string, page, limit int) ([]connection.Connection, int64, error) {
-	var conns []connection.Connection
+func (r *pgConnectionRepository) ListRequests(userID uuid.UUID, requestType string, page, limit int) ([]model.Connection, int64, error) {
+	var conns []model.Connection
 	var total int64
 
-	query := r.db.Model(&connection.Connection{}).
+	query := r.db.Model(&model.Connection{}).
 		Preload("Requester").Preload("Addressee").
 		Where("status = 'pending'")
 
@@ -101,17 +101,17 @@ func (r *pgConnectionRepository) ListRequests(userID uuid.UUID, requestType stri
 	return conns, total, err
 }
 
-func (r *pgConnectionRepository) Update(conn *connection.Connection) error {
+func (r *pgConnectionRepository) Update(conn *model.Connection) error {
 	return r.db.Save(conn).Error
 }
 
 func (r *pgConnectionRepository) Delete(id uuid.UUID) error {
-	return r.db.Where("id = ?", id).Delete(&connection.Connection{}).Error
+	return r.db.Where("id = ?", id).Delete(&model.Connection{}).Error
 }
 
 func (r *pgConnectionRepository) CountAccepted(userID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&connection.Connection{}).
+	err := r.db.Model(&model.Connection{}).
 		Where("status = 'accepted' AND (requester_id = ? OR addressee_id = ?)", userID, userID).
 		Count(&count).Error
 	return count, err

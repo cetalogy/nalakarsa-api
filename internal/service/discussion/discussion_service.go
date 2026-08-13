@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model/discussion"
+	"nalakarsa/internal/model"
 	discussionrepository "nalakarsa/internal/repository/discussion"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -35,7 +35,7 @@ func NewDiscussionService(discRepo discussionrepository.DiscussionRepository, us
 }
 
 func (s *discussionService) Create(userID uuid.UUID, req dto.CreateDiscussionRequest) (uuid.UUID, error) {
-	disc := &discussion.Discussion{
+	disc := &model.Discussion{
 		UserID:      userID,
 		Title:       req.Title,
 		Description: req.GetDescription(),
@@ -223,7 +223,7 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 		return nil, errors.New("discussion not found")
 	}
 
-	reply := &discussion.DiscussionReply{
+	reply := &model.DiscussionReply{
 		DiscussionID: discussionID,
 		UserID:       userID,
 		ParentID:     req.ParentID,
@@ -277,7 +277,7 @@ func (s *discussionService) DeleteReply(userID uuid.UUID, replyID uuid.UUID) err
 	return s.discRepo.DeleteReply(replyID)
 }
 
-func (s *discussionService) toDiscussionReplyResponse(r discussion.DiscussionReply) dto.DiscussionReplyResponse {
+func (s *discussionService) toDiscussionReplyResponse(r model.DiscussionReply) dto.DiscussionReplyResponse {
 	return dto.DiscussionReplyResponse{
 		ID:        r.ID,
 		Content:   r.Content,
@@ -292,7 +292,7 @@ func (s *discussionService) toDiscussionReplyResponse(r discussion.DiscussionRep
 	}
 }
 
-func (s *discussionService) toDiscussionReplyResponses(replies []discussion.DiscussionReply) []dto.DiscussionReplyResponse {
+func (s *discussionService) toDiscussionReplyResponses(replies []model.DiscussionReply) []dto.DiscussionReplyResponse {
 	if len(replies) == 0 {
 		return []dto.DiscussionReplyResponse{}
 	}
@@ -322,7 +322,7 @@ func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error
 		return errors.New("already upvoted this discussion")
 	}
 
-	vote := &discussion.DiscussionVote{
+	vote := &model.DiscussionVote{
 		UserID:       userID,
 		DiscussionID: discussionID,
 	}

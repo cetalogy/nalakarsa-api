@@ -5,23 +5,22 @@ import (
 	"strings"
 	"time"
 
-	"nalakarsa/internal/model/discussion"
-	"nalakarsa/internal/model/user"
+	"nalakarsa/internal/model"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type UserRepository interface {
-	Create(u *user.User) error
-	GetByEmail(email string) (*user.User, error)
-	GetByID(id uuid.UUID) (*user.User, error)
-	UpdateProfile(u *user.User) error
+	Create(u *model.User) error
+	GetByEmail(email string) (*model.User, error)
+	GetByID(id uuid.UUID) (*model.User, error)
+	UpdateProfile(u *model.User) error
 	UpdateAvatar(userID uuid.UUID, avatarURL string) error
 	IncrementViewCount(userID uuid.UUID) error
-	ListUsers(search, role string, page, limit int) ([]user.User, int64, error)
-	CreateRefreshToken(rt *user.RefreshToken) error
-	GetRefreshToken(token string) (*user.RefreshToken, error)
+	ListUsers(search, role string, page, limit int) ([]model.User, int64, error)
+	CreateRefreshToken(rt *model.RefreshToken) error
+	GetRefreshToken(token string) (*model.RefreshToken, error)
 	DeleteRefreshToken(token string) error
 	DeleteRefreshTokensByUserID(userID uuid.UUID) error
 	CountActiveRefreshTokens(userID uuid.UUID) (int64, error)
@@ -37,7 +36,7 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 	return &pgUserRepository{db: db}
 }
 
-func (r *pgUserRepository) Create(u *user.User) error {
+func (r *pgUserRepository) Create(u *model.User) error {
 	// Normalize email to lowercase
 	u.Email = strings.ToLower(strings.TrimSpace(u.Email))
 
@@ -49,8 +48,8 @@ func (r *pgUserRepository) Create(u *user.User) error {
 	})
 }
 
-func (r *pgUserRepository) GetByEmail(email string) (*user.User, error) {
-	var u user.User
+func (r *pgUserRepository) GetByEmail(email string) (*model.User, error) {
+	var u model.User
 	err := r.db.Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&u).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -61,8 +60,8 @@ func (r *pgUserRepository) GetByEmail(email string) (*user.User, error) {
 	return &u, nil
 }
 
-func (r *pgUserRepository) GetByID(id uuid.UUID) (*user.User, error) {
-	var u user.User
+func (r *pgUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
+	var u model.User
 	err := r.db.Where("id = ?", id).First(&u).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -73,29 +72,29 @@ func (r *pgUserRepository) GetByID(id uuid.UUID) (*user.User, error) {
 	return &u, nil
 }
 
-func (r *pgUserRepository) UpdateProfile(u *user.User) error {
-	return r.db.Model(&user.User{}).
+func (r *pgUserRepository) UpdateProfile(u *model.User) error {
+	return r.db.Model(&model.User{}).
 		Where("id = ?", u.ID).
 		Updates(u).Error
 }
 
 func (r *pgUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
-	return r.db.Model(&user.User{}).
+	return r.db.Model(&model.User{}).
 		Where("id = ?", userID).
 		Update("avatar_url", avatarURL).Error
 }
 
 func (r *pgUserRepository) IncrementViewCount(userID uuid.UUID) error {
-	return r.db.Model(&user.User{}).
+	return r.db.Model(&model.User{}).
 		Where("id = ?", userID).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 }
 
-func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]user.User, int64, error) {
-	var users []user.User
+func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]model.User, int64, error) {
+	var users []model.User
 	var total int64
 
-	query := r.db.Model(&user.User{})
+	query := r.db.Model(&model.User{})
 
 	if role != "" {
 		query = query.Where("role = ?", role)
@@ -121,12 +120,12 @@ func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]us
 	return users, total, nil
 }
 
-func (r *pgUserRepository) CreateRefreshToken(rt *user.RefreshToken) error {
+func (r *pgUserRepository) CreateRefreshToken(rt *model.RefreshToken) error {
 	return r.db.Create(rt).Error
 }
 
-func (r *pgUserRepository) GetRefreshToken(token string) (*user.RefreshToken, error) {
-	var rt user.RefreshToken
+func (r *pgUserRepository) GetRefreshToken(token string) (*model.RefreshToken, error) {
+	var rt model.RefreshToken
 	err := r.db.Where("token = ?", token).First(&rt).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -138,16 +137,16 @@ func (r *pgUserRepository) GetRefreshToken(token string) (*user.RefreshToken, er
 }
 
 func (r *pgUserRepository) DeleteRefreshToken(token string) error {
-	return r.db.Where("token = ?", token).Delete(&user.RefreshToken{}).Error
+	return r.db.Where("token = ?", token).Delete(&model.RefreshToken{}).Error
 }
 
 func (r *pgUserRepository) DeleteRefreshTokensByUserID(userID uuid.UUID) error {
-	return r.db.Where("user_id = ?", userID).Delete(&user.RefreshToken{}).Error
+	return r.db.Where("user_id = ?", userID).Delete(&model.RefreshToken{}).Error
 }
 
 func (r *pgUserRepository) CountActiveRefreshTokens(userID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&user.RefreshToken{}).
+	err := r.db.Model(&model.RefreshToken{}).
 		Where("user_id = ?", userID).
 		Where("expires_at > ?", time.Now()).
 		Count(&count).Error
@@ -160,12 +159,12 @@ func (r *pgUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, kee
 	}
 
 	// Cleanup expired refresh tokens first so active limit focuses on valid sessions.
-	if err := r.db.Where("user_id = ? AND expires_at <= ?", userID, time.Now()).Delete(&user.RefreshToken{}).Error; err != nil {
+	if err := r.db.Where("user_id = ? AND expires_at <= ?", userID, time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
 		return err
 	}
 
 	var ids []uuid.UUID
-	err := r.db.Model(&user.RefreshToken{}).
+	err := r.db.Model(&model.RefreshToken{}).
 		Where("user_id = ?", userID).
 		Where("expires_at > ?", time.Now()).
 		Order("created_at desc").
@@ -175,11 +174,11 @@ func (r *pgUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, kee
 		return err
 	}
 
-	return r.db.Where("id IN ?", ids).Delete(&user.RefreshToken{}).Error
+	return r.db.Where("id IN ?", ids).Delete(&model.RefreshToken{}).Error
 }
 
 func (r *pgUserRepository) CountDiscussions(userID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&discussion.Discussion{}).Where("user_id = ?", userID).Count(&count).Error
+	err := r.db.Model(&model.Discussion{}).Where("user_id = ?", userID).Count(&count).Error
 	return count, err
 }

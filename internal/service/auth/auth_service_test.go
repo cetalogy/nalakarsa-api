@@ -6,25 +6,25 @@ import (
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
-	"nalakarsa/internal/model/user"
+	"nalakarsa/internal/model"
 
 	"github.com/google/uuid"
 )
 
 // MockUserRepository implements repository.UserRepository for testing
 type mockUserRepository struct {
-	users         map[string]*user.User
-	refreshTokens map[string]*user.RefreshToken
+	users         map[string]*model.User
+	refreshTokens map[string]*model.RefreshToken
 }
 
 func newMockUserRepository() *mockUserRepository {
 	return &mockUserRepository{
-		users:         make(map[string]*user.User),
-		refreshTokens: make(map[string]*user.RefreshToken),
+		users:         make(map[string]*model.User),
+		refreshTokens: make(map[string]*model.RefreshToken),
 	}
 }
 
-func (m *mockUserRepository) Create(u *user.User) error {
+func (m *mockUserRepository) Create(u *model.User) error {
 	if _, exists := m.users[u.Email]; exists {
 		return errors.New("user already exists")
 	}
@@ -33,7 +33,7 @@ func (m *mockUserRepository) Create(u *user.User) error {
 	return nil
 }
 
-func (m *mockUserRepository) GetByEmail(email string) (*user.User, error) {
+func (m *mockUserRepository) GetByEmail(email string) (*model.User, error) {
 	u, exists := m.users[email]
 	if !exists {
 		return nil, nil
@@ -41,7 +41,7 @@ func (m *mockUserRepository) GetByEmail(email string) (*user.User, error) {
 	return u, nil
 }
 
-func (m *mockUserRepository) GetByID(id uuid.UUID) (*user.User, error) {
+func (m *mockUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 	for _, u := range m.users {
 		if u.ID == id {
 			return u, nil
@@ -50,7 +50,7 @@ func (m *mockUserRepository) GetByID(id uuid.UUID) (*user.User, error) {
 	return nil, nil
 }
 
-func (m *mockUserRepository) UpdateProfile(u *user.User) error {
+func (m *mockUserRepository) UpdateProfile(u *model.User) error {
 	for _, existing := range m.users {
 		if existing.ID == u.ID {
 			existing.FirstName = u.FirstName
@@ -82,8 +82,8 @@ func (m *mockUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) er
 	return errors.New("user not found")
 }
 
-func (m *mockUserRepository) ListUsers(search, role string, page, limit int) ([]user.User, int64, error) {
-	var result []user.User
+func (m *mockUserRepository) ListUsers(search, role string, page, limit int) ([]model.User, int64, error) {
+	var result []model.User
 	for _, u := range m.users {
 		if role != "" && u.Role != role {
 			continue
@@ -93,12 +93,12 @@ func (m *mockUserRepository) ListUsers(search, role string, page, limit int) ([]
 	return result, int64(len(result)), nil
 }
 
-func (m *mockUserRepository) CreateRefreshToken(rt *user.RefreshToken) error {
+func (m *mockUserRepository) CreateRefreshToken(rt *model.RefreshToken) error {
 	m.refreshTokens[rt.Token] = rt
 	return nil
 }
 
-func (m *mockUserRepository) GetRefreshToken(token string) (*user.RefreshToken, error) {
+func (m *mockUserRepository) GetRefreshToken(token string) (*model.RefreshToken, error) {
 	rt, exists := m.refreshTokens[token]
 	if !exists {
 		return nil, nil
@@ -136,7 +136,7 @@ func (m *mockUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, k
 	}
 
 	// simple strategy: remove all first, then keep the newest by insertion not guaranteed in mock
-	var tokens []*user.RefreshToken
+	var tokens []*model.RefreshToken
 	for t, rt := range m.refreshTokens {
 		if rt.UserID == userID {
 			_ = t

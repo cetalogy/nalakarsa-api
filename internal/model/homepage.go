@@ -1,4 +1,4 @@
-package homepage
+package model
 
 import (
 	"time"

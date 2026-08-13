@@ -7,13 +7,7 @@ import (
 	"time"
 
 	"nalakarsa/internal/config"
-	"nalakarsa/internal/model/connection"
-	"nalakarsa/internal/model/conversation"
-	"nalakarsa/internal/model/discussion"
-	"nalakarsa/internal/model/homepage"
-	"nalakarsa/internal/model/notification"
-	"nalakarsa/internal/model/project"
-	"nalakarsa/internal/model/user"
+	"nalakarsa/internal/model"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -84,36 +78,36 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		log.Println("Running database migrations...")
 		err = db.AutoMigrate(
 			// Core
-			&user.User{},
+			&model.User{},
 
-			&user.RefreshToken{},
+			&model.RefreshToken{},
 
 			// Discussions
-			&discussion.Discussion{},
-			&discussion.DiscussionReply{},
-			&discussion.DiscussionVote{},
+			&model.Discussion{},
+			&model.DiscussionReply{},
+			&model.DiscussionVote{},
 
 			// Connections
-			&connection.Connection{},
+			&model.Connection{},
 
 			// Projects
-			&project.Project{},
-			&project.ProjectMember{},
-			&project.ProjectApplication{},
-			&project.ProjectMilestone{},
+			&model.Project{},
+			&model.ProjectMember{},
+			&model.ProjectApplication{},
+			&model.ProjectMilestone{},
 
 			// Chat
-			&conversation.Conversation{},
-			&conversation.ConversationMember{},
-			&conversation.Message{},
+			&model.Conversation{},
+			&model.ConversationMember{},
+			&model.Message{},
 
 			// Notifications
-			&notification.Notification{},
+			&model.Notification{},
 
 			// Homepage (landing content)
-			&homepage.HomepageHero{},
-			&homepage.HomepageSection{},
-			&homepage.HomepageTestimonial{},
+			&model.HomepageHero{},
+			&model.HomepageSection{},
+			&model.HomepageTestimonial{},
 		)
 
 		if err != nil {

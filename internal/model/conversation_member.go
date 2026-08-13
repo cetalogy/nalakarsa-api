@@ -1,9 +1,7 @@
-package conversation
+package model
 
 import (
 	"time"
-
-	"nalakarsa/internal/model/user"
 
 	"github.com/google/uuid"
 )
@@ -16,5 +14,5 @@ type ConversationMember struct {
 	JoinedAt          time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	// Relations
-	User user.User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	User User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
