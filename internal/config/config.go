@@ -19,9 +19,9 @@ type Config struct {
 	DBSslMode                  string
 	DBTimeZone                 string
 	DBAutoMigrate              bool
-	FirebaseProjectID          string
-	FirebaseCredentialJSONPath string
-	FirebaseStorageBucket      string
+	SupabaseURL                string
+	SupabaseServiceRoleKey     string
+	SupabaseStorageBucket      string
 	JWTSecret                  string
 	JWTRefreshSecret           string
 	JWTAccessExpiration        int
@@ -47,9 +47,9 @@ func LoadConfig() *Config {
 		DBSslMode:                  getEnv("DB_SSLMODE", "disable"),
 		DBTimeZone:                 getEnv("DB_TIMEZONE", "Asia/Jakarta"),
 		DBAutoMigrate:              getEnvAsBool("DB_AUTO_MIGRATE", true),
-		FirebaseProjectID:          getEnv("FIREBASE_PROJECT_ID", ""),
-		FirebaseCredentialJSONPath: getEnv("FIREBASE_CREDENTIAL_JSON_PATH", ""),
-		FirebaseStorageBucket:      getEnv("FIREBASE_STORAGE_BUCKET", ""),
+		SupabaseURL:                getEnv("SUPABASE_URL", ""),
+		SupabaseServiceRoleKey:     getEnv("SUPABASE_SERVICE_ROLE_KEY", ""),
+		SupabaseStorageBucket:      getEnv("SUPABASE_STORAGE_BUCKET", ""),
 		JWTAccessExpiration:        getEnvAsInt("JWT_ACCESS_EXPIRATION", 900),
 		JWTRefreshExpiration:       getEnvAsInt("JWT_REFRESH_EXPIRATION", 604800),
 		MaxActiveRefreshTokens:     getEnvAsInt("MAX_ACTIVE_REFRESH_TOKENS", 5),
