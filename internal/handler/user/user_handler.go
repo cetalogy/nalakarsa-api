@@ -1,6 +1,7 @@
 package userhandler
 
 import (
+	"log"
 	"net/http"
 
 	"nalakarsa/internal/config"
@@ -177,16 +178,14 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		"image/jpeg": true,
 		"image/jpg":  true,
 		"image/png":  true,
-		"image/gif":  true,
-		"image/webp": true,
 	}
 	if !allowedTypes[contentType] {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid file type. Only JPEG, PNG, GIF, and WEBP are allowed")
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid file type. Only JPG, JPEG, and PNG are allowed")
 		return
 	}
 
-	// Upload to Firebase
-	secureURL, err := utils.UploadAvatarToFirebase(file, h.cfg)
+	// Upload to Supabase Storage
+	secureURL, err := utils.UploadAvatarToSupabase(userID, file, h.cfg)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, "Failed to upload avatar to cloud storage: "+err.Error())
 		return
@@ -196,6 +195,10 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	if err := h.userService.UpdateAvatar(userID, secureURL); err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, "Failed to update profile avatar: "+err.Error())
 		return
+	}
+
+	if err := utils.CleanupOtherAvatarVariants(userID, secureURL, h.cfg); err != nil {
+		log.Printf("failed to cleanup old avatar variants for user %s: %v", userID, err)
 	}
 
 	utils.JSONResponse(c, http.StatusOK, "Avatar uploaded successfully", gin.H{
