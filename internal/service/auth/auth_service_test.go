@@ -174,6 +174,31 @@ func (m *mockUserRepository) CountDiscussions(userID uuid.UUID) (int64, error) {
 	return 0, nil
 }
 
+func (m *mockUserRepository) ToggleFollow(followerID, followingID uuid.UUID) (bool, error) {
+	return true, nil
+}
+
+func (m *mockUserRepository) IsFollowing(followerID, followingID uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *mockUserRepository) GetFollowers(targetUserID uuid.UUID, page, limit int) ([]model.User, int64, error) {
+	return []model.User{}, 0, nil
+}
+
+func (m *mockUserRepository) GetFollowing(targetUserID uuid.UUID, page, limit int) ([]model.User, int64, error) {
+	return []model.User{}, 0, nil
+}
+
+func (m *mockUserRepository) CountFollowers(targetUserID uuid.UUID) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockUserRepository) CountFollowing(targetUserID uuid.UUID) (int64, error) {
+	return 0, nil
+}
+
+
 func TestRegisterAndLogin(t *testing.T) {
 	mockRepo := newMockUserRepository()
 	cfg := &config.Config{
