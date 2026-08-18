@@ -26,6 +26,12 @@ type ProjectService interface {
 	ListMembers(projectID uuid.UUID) ([]dto.ProjectMemberResponse, error)
 	CreateMilestone(userID uuid.UUID, projectID uuid.UUID, req dto.CreateMilestoneRequest) (uuid.UUID, error)
 	UpdateMilestone(userID uuid.UUID, projectID uuid.UUID, milestoneID uuid.UUID, req dto.UpdateMilestoneRequest) error
+
+	// Collaboration Requests (FE Contract)
+	SubmitCollabRequest(applicantID uuid.UUID, req dto.SubmitCollaborationRequest) (*dto.CollaborationRequestItemResponse, error)
+	ListCollabRequests(userID uuid.UUID) ([]dto.CollaborationRequestItemResponse, error)
+	ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*dto.ApproveCollaborationResponse, error)
+	RejectCollabRequest(requestID, initiatorID uuid.UUID, req dto.RejectCollaborationRequest) (*dto.RejectCollaborationResponse, error)
 }
 
 type projectService struct {
@@ -401,3 +407,153 @@ func toProjectResponse(p *model.Project) dto.ProjectResponse {
 		SourceDiscussionID: p.SourceDiscussionID,
 	}
 }
+
+func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.SubmitCollaborationRequest) (*dto.CollaborationRequestItemResponse, error) {
+	if req.DiscussionID == nil && req.ProjectID == nil {
+		return nil, errors.New("discussionId or projectId is required")
+	}
+
+	applicant, err := s.userRepo.GetByID(applicantID)
+	if err != nil || applicant == nil {
+		return nil, errors.New("applicant user not found")
+	}
+
+	var title string
+
+	// Validate target resource & prevent applying to own discussion/project
+	if req.DiscussionID != nil {
+		disc, err := s.discRepo.GetByID(*req.DiscussionID)
+		if err != nil || disc == nil {
+			return nil, errors.New("discussion topic not found")
+		}
+		if disc.UserID == applicantID {
+			return nil, errors.New("cannot apply for collaboration on your own discussion topic")
+		}
+		title = disc.Title
+	} else if req.ProjectID != nil {
+		proj, err := s.projRepo.GetByID(*req.ProjectID)
+		if err != nil || proj == nil {
+			return nil, errors.New("project not found")
+		}
+		if proj.OwnerID == applicantID {
+			return nil, errors.New("cannot apply for collaboration on your own project")
+		}
+		title = proj.Title
+	}
+
+	// Check if already has a pending application
+	hasPending, err := s.projRepo.HasPendingCollabRequest(applicantID, req.DiscussionID, req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	if hasPending {
+		return nil, errors.New("you already have a pending collaboration request for this topic/project")
+	}
+
+	collabReq := model.CollaborationRequest{
+		DiscussionID:         req.DiscussionID,
+		ProjectID:            req.ProjectID,
+		ApplicantID:          applicantID,
+		ProposedContribution: req.ProposedContribution,
+		Status:               "PENDING",
+	}
+
+	if err := s.projRepo.CreateCollabRequest(&collabReq); err != nil {
+		return nil, err
+	}
+
+	return &dto.CollaborationRequestItemResponse{
+		ID:                   collabReq.ID,
+		DiscussionID:         collabReq.DiscussionID,
+		ProjectID:            collabReq.ProjectID,
+		Title:                title,
+		ProposedContribution: collabReq.ProposedContribution,
+		Status:               collabReq.Status,
+		CreatedAt:            collabReq.CreatedAt,
+		Applicant: dto.CollabApplicantResponse{
+			ID:        applicant.ID,
+			FullName:  applicant.FullName,
+			Role:      applicant.Role,
+			AvatarURL: applicant.AvatarURL,
+		},
+	}, nil
+}
+
+func (s *projectService) ListCollabRequests(userID uuid.UUID) ([]dto.CollaborationRequestItemResponse, error) {
+	requests, err := s.projRepo.ListCollabRequestsForUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]dto.CollaborationRequestItemResponse, len(requests))
+	for i, r := range requests {
+		title := "Proyek Kolaborasi"
+		if r.Discussion != nil && r.Discussion.Title != "" {
+			title = r.Discussion.Title
+		} else if r.Project != nil && r.Project.Title != "" {
+			title = r.Project.Title
+		}
+
+		res[i] = dto.CollaborationRequestItemResponse{
+			ID:                   r.ID,
+			DiscussionID:         r.DiscussionID,
+			ProjectID:            r.ProjectID,
+			Title:                title,
+			ProposedContribution: r.ProposedContribution,
+			Status:               r.Status,
+			RejectionReason:      r.RejectionReason,
+			CreatedAt:            r.CreatedAt,
+			Applicant: dto.CollabApplicantResponse{
+				ID:        r.Applicant.ID,
+				FullName:  r.Applicant.FullName,
+				Role:      r.Applicant.Role,
+				AvatarURL: r.Applicant.AvatarURL,
+			},
+		}
+	}
+
+	return res, nil
+}
+
+func (s *projectService) ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*dto.ApproveCollaborationResponse, error) {
+	req, proj, groupChat, err := s.projRepo.ApproveCollabRequest(requestID, initiatorID)
+	if err != nil {
+		return nil, err
+	}
+
+	var projectID *uuid.UUID
+	if proj != nil {
+		projectID = &proj.ID
+	}
+
+	var groupChatID uuid.UUID
+	if groupChat != nil {
+		groupChatID = groupChat.ID
+	}
+
+	return &dto.ApproveCollaborationResponse{
+		RequestID:   req.ID,
+		Status:      req.Status,
+		ProjectID:   projectID,
+		GroupChatID: groupChatID,
+	}, nil
+}
+
+func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID, req dto.RejectCollaborationRequest) (*dto.RejectCollaborationResponse, error) {
+	collabReq, err := s.projRepo.RejectCollabRequest(requestID, initiatorID, req.Reason)
+	if err != nil {
+		return nil, err
+	}
+
+	reasonStr := ""
+	if collabReq.RejectionReason != nil {
+		reasonStr = *collabReq.RejectionReason
+	}
+
+	return &dto.RejectCollaborationResponse{
+		RequestID: collabReq.ID,
+		Status:    collabReq.Status,
+		Reason:    reasonStr,
+	}, nil
+}
+

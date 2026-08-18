@@ -79,6 +79,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		err = db.AutoMigrate(
 			// Core
 			&model.User{},
+			&model.UserFollower{},
 
 			&model.RefreshToken{},
 
@@ -90,16 +91,20 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			// Connections
 			&model.Connection{},
 
-			// Projects
+			// Projects & Collaboration Requests
 			&model.Project{},
 			&model.ProjectMember{},
 			&model.ProjectApplication{},
 			&model.ProjectMilestone{},
+			&model.CollaborationRequest{},
 
-			// Chat
+			// Chat & Group Chats
 			&model.Conversation{},
 			&model.ConversationMember{},
 			&model.Message{},
+			&model.GroupChat{},
+			&model.GroupChatMember{},
+			&model.GroupMessage{},
 
 			// Notifications
 			&model.Notification{},

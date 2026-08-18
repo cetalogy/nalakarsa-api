@@ -145,3 +145,90 @@ func (h *ConversationHandler) MarkRead(c *gin.Context) {
 
 	utils.JSONResponse(c, http.StatusOK, "Messages marked as read", nil, nil)
 }
+
+func (h *ConversationHandler) ListGroupChats(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	groupChats, err := h.convService.ListGroupChats(userID)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Collaboration group chats retrieved successfully", groupChats, nil)
+}
+
+func (h *ConversationHandler) ListGroupMessages(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+	groupIDStr := c.Param("groupId")
+	if groupIDStr == "" {
+		groupIDStr = c.Param("id")
+	}
+
+	groupID, err := uuid.Parse(groupIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format")
+		return
+	}
+
+	page, limit := utils.ParsePaginationRequest(c)
+
+	messages, total, err := h.convService.ListGroupMessages(userID, groupID, page, limit)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "group chat not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "unauthorized to view messages in this group chat" {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Group messages retrieved successfully", messages, &dto.PaginationResponse{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalItems:  total,
+		Limit:       limit,
+	})
+}
+
+func (h *ConversationHandler) SendGroupMessage(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+	groupIDStr := c.Param("groupId")
+	if groupIDStr == "" {
+		groupIDStr = c.Param("id")
+	}
+
+	groupID, err := uuid.Parse(groupIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format")
+		return
+	}
+
+	var req dto.SendGroupMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, err)
+		return
+	}
+
+	msg, err := h.convService.SendGroupMessage(userID, groupID, req)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "group chat not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "unauthorized to send messages to this group chat" {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Group message sent successfully", msg, nil)
+}
+

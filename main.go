@@ -92,7 +92,7 @@ func main() {
 	discService := discussionservice.NewDiscussionService(discRepo, userRepo)
 	connService := connectionservice.NewConnectionService(connRepo, userRepo)
 	projService := projectservice.NewProjectService(projRepo, userRepo, discRepo)
-	convService := conversationservice.NewConversationService(convRepo, userRepo)
+	convService := conversationservice.NewConversationService(convRepo, userRepo, cfg)
 	notifService := notificationservice.NewNotificationService(notifRepo)
 	dashService := dashboardservice.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)
 	homeService := homepageService.NewHomepageService(homeRepo)

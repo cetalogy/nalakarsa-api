@@ -10,6 +10,8 @@ func RegisterRoutes(public *gin.RouterGroup, protected *gin.RouterGroup, h *user
 	users := public.Group("/users")
 	users.GET("", h.ListUsers)
 	users.GET("/:id", h.GetPublicProfile)
+	users.GET("/:id/followers", h.GetFollowers)
+	users.GET("/:id/following", h.GetFollowing)
 
 	protected.GET("/users/me", h.GetProfile)
 	protected.PATCH("/users/me", h.UpdateProfile)
@@ -18,5 +20,6 @@ func RegisterRoutes(public *gin.RouterGroup, protected *gin.RouterGroup, h *user
 	protected.GET("/auth/me", h.GetProfile)
 	protected.PATCH("/auth/me", h.UpdateProfile)
 	protected.POST("/users/me/avatar", h.UploadAvatar)
+	protected.POST("/users/:id/follow", h.ToggleFollow)
 	protected.GET("/users/suggestions", suggestions)
 }

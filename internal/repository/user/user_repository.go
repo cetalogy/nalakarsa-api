@@ -26,6 +26,12 @@ type UserRepository interface {
 	CountActiveRefreshTokens(userID uuid.UUID) (int64, error)
 	DeleteOldestRefreshTokensByUser(userID uuid.UUID, keepLatest int) error
 	CountDiscussions(userID uuid.UUID) (int64, error)
+	ToggleFollow(followerID, followingID uuid.UUID) (bool, error)
+	IsFollowing(followerID, followingID uuid.UUID) (bool, error)
+	GetFollowers(userID uuid.UUID, page, limit int) ([]model.User, int64, error)
+	GetFollowing(userID uuid.UUID, page, limit int) ([]model.User, int64, error)
+	CountFollowers(userID uuid.UUID) (int64, error)
+	CountFollowing(userID uuid.UUID) (int64, error)
 }
 
 type pgUserRepository struct {
@@ -182,3 +188,91 @@ func (r *pgUserRepository) CountDiscussions(userID uuid.UUID) (int64, error) {
 	err := r.db.Model(&model.Discussion{}).Where("user_id = ?", userID).Count(&count).Error
 	return count, err
 }
+
+func (r *pgUserRepository) ToggleFollow(followerID, followingID uuid.UUID) (bool, error) {
+	var existing model.UserFollower
+	err := r.db.Where("follower_id = ? AND following_id = ?", followerID, followingID).First(&existing).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Not following yet -> Create follow
+			newFollow := model.UserFollower{
+				FollowerID:  followerID,
+				FollowingID: followingID,
+			}
+			if createErr := r.db.Create(&newFollow).Error; createErr != nil {
+				return false, createErr
+			}
+			return true, nil
+		}
+		return false, err
+	}
+
+	// Already following -> Unfollow
+	if deleteErr := r.db.Where("follower_id = ? AND following_id = ?", followerID, followingID).Delete(&model.UserFollower{}).Error; deleteErr != nil {
+		return false, deleteErr
+	}
+	return false, nil
+}
+
+func (r *pgUserRepository) IsFollowing(followerID, followingID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.UserFollower{}).
+		Where("follower_id = ? AND following_id = ?", followerID, followingID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (r *pgUserRepository) GetFollowers(userID uuid.UUID, page, limit int) ([]model.User, int64, error) {
+	var users []model.User
+	var total int64
+
+	subQuery := r.db.Model(&model.UserFollower{}).Select("follower_id").Where("following_id = ?", userID)
+
+	if err := r.db.Model(&model.User{}).Where("id IN (?)", subQuery).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Model(&model.User{}).
+		Joins("JOIN user_followers ON user_followers.follower_id = users.id").
+		Where("user_followers.following_id = ?", userID).
+		Order("user_followers.created_at desc").
+		Limit(limit).Offset(offset).
+		Find(&users).Error
+
+	return users, total, err
+}
+
+func (r *pgUserRepository) GetFollowing(userID uuid.UUID, page, limit int) ([]model.User, int64, error) {
+	var users []model.User
+	var total int64
+
+	subQuery := r.db.Model(&model.UserFollower{}).Select("following_id").Where("follower_id = ?", userID)
+
+	if err := r.db.Model(&model.User{}).Where("id IN (?)", subQuery).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Model(&model.User{}).
+		Joins("JOIN user_followers ON user_followers.following_id = users.id").
+		Where("user_followers.follower_id = ?", userID).
+		Order("user_followers.created_at desc").
+		Limit(limit).Offset(offset).
+		Find(&users).Error
+
+	return users, total, err
+}
+
+func (r *pgUserRepository) CountFollowers(userID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.UserFollower{}).Where("following_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *pgUserRepository) CountFollowing(userID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.UserFollower{}).Where("follower_id = ?", userID).Count(&count).Error
+	return count, err
+}
+

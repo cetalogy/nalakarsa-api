@@ -44,9 +44,26 @@ type MyProjectsResponse struct {
 
 type UserStatsResponse struct {
 	ConnectionCount int64 `json:"connection_count"`
+	FollowersCount  int64 `json:"followers_count"`
+	FollowingCount  int64 `json:"following_count"`
 	ProjectCount    int64 `json:"project_count"`
 	DiscussionCount int64 `json:"discussion_count"`
 	ViewCount       int64 `json:"view_count"`
+}
+
+type ToggleFollowResponse struct {
+	Message      string    `json:"message"`
+	IsFollowing  bool      `json:"isFollowing"`
+	TargetUserID uuid.UUID `json:"targetUserId"`
+}
+
+type FollowUserItemResponse struct {
+	ID          uuid.UUID `json:"id"`
+	FullName    string    `json:"fullName"`
+	Role        string    `json:"role"`
+	Affiliation string    `json:"affiliation"`
+	AvatarURL   string    `json:"avatar_url"`
+	IsFollowing bool      `json:"isFollowing,omitempty"`
 }
 
 type UpdateProfileRequest struct {

@@ -205,3 +205,116 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		"avatar_url": secureURL,
 	}, nil)
 }
+
+func (h *UserHandler) ToggleFollow(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	currentUserID := userIDInterface.(uuid.UUID)
+
+	targetIDStr := c.Param("id")
+	targetUserID, err := uuid.Parse(targetIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid target user ID format")
+		return
+	}
+
+	res, err := h.userService.ToggleFollow(currentUserID, targetUserID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "target user not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "cannot follow yourself" {
+			statusCode = http.StatusBadRequest
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, res.Message, res, nil)
+}
+
+func (h *UserHandler) GetFollowers(c *gin.Context) {
+	targetIDStr := c.Param("id")
+	targetUserID, err := uuid.Parse(targetIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid user ID format")
+		return
+	}
+
+	var currentUserID *uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		uid := userIDInterface.(uuid.UUID)
+		currentUserID = &uid
+	}
+
+	page, limit := utils.ParsePaginationRequest(c)
+
+	followers, total, err := h.userService.GetFollowers(currentUserID, targetUserID, page, limit)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "user not found" {
+			statusCode = http.StatusNotFound
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := &dto.PaginationResponse{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalItems:  total,
+		Limit:       limit,
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Followers retrieved successfully", followers, pagination)
+}
+
+func (h *UserHandler) GetFollowing(c *gin.Context) {
+	targetIDStr := c.Param("id")
+	targetUserID, err := uuid.Parse(targetIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid user ID format")
+		return
+	}
+
+	var currentUserID *uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		uid := userIDInterface.(uuid.UUID)
+		currentUserID = &uid
+	}
+
+	page, limit := utils.ParsePaginationRequest(c)
+
+	following, total, err := h.userService.GetFollowing(currentUserID, targetUserID, page, limit)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "user not found" {
+			statusCode = http.StatusNotFound
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := &dto.PaginationResponse{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalItems:  total,
+		Limit:       limit,
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Following list retrieved successfully", following, pagination)
+}
+

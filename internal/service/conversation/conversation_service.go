@@ -2,12 +2,15 @@ package conversationservice
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
+	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	conversationrepository "nalakarsa/internal/repository/conversation"
 	userrepository "nalakarsa/internal/repository/user"
+	"nalakarsa/internal/utils"
 
 	"github.com/google/uuid"
 )
@@ -19,15 +22,21 @@ type ConversationService interface {
 	ListMessages(userID uuid.UUID, conversationID uuid.UUID, limit int, cursor string) ([]dto.MessageResponse, bool, error)
 	SendMessage(userID uuid.UUID, conversationID uuid.UUID, req dto.SendMessageRequest) (*dto.MessageResponse, error)
 	MarkRead(userID uuid.UUID, conversationID uuid.UUID) error
+
+	// Group Chats (FE Contract Specification)
+	ListGroupChats(userID uuid.UUID) ([]dto.GroupChatResponse, error)
+	ListGroupMessages(userID uuid.UUID, groupChatID uuid.UUID, page, limit int) ([]dto.GroupMessageResponse, int64, error)
+	SendGroupMessage(userID uuid.UUID, groupChatID uuid.UUID, req dto.SendGroupMessageRequest) (*dto.GroupMessageResponse, error)
 }
 
 type conversationService struct {
 	convRepo conversationrepository.ConversationRepository
 	userRepo userrepository.UserRepository
+	cfg      *config.Config
 }
 
-func NewConversationService(convRepo conversationrepository.ConversationRepository, userRepo userrepository.UserRepository) ConversationService {
-	return &conversationService{convRepo: convRepo, userRepo: userRepo}
+func NewConversationService(convRepo conversationrepository.ConversationRepository, userRepo userrepository.UserRepository, cfg *config.Config) ConversationService {
+	return &conversationService{convRepo: convRepo, userRepo: userRepo, cfg: cfg}
 }
 
 func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.CreateDirectConversationRequest) (*dto.ConversationResponse, error) {
@@ -212,12 +221,19 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 	if msg.SenderID == userID {
 		sender = "me"
 	}
-	return &dto.MessageResponse{
+
+	response := &dto.MessageResponse{
 		ID:     msg.ID,
 		Sender: sender,
 		Text:   msg.Body,
 		Time:   msg.CreatedAt,
-	}, nil
+	}
+
+	// Trigger Supabase WebSocket broadcast asynchronously
+	topic := fmt.Sprintf("conversation-%s", conversationID.String())
+	utils.BroadcastToSupabase(topic, "new_message", response, s.cfg)
+
+	return response, nil
 }
 
 func (s *conversationService) MarkRead(userID uuid.UUID, conversationID uuid.UUID) error {
@@ -267,4 +283,154 @@ func (s *conversationService) buildConversationResponse(conv *model.Conversation
 		Avatar:      avatar,
 		LastMessage: lastMessageText,
 	}, nil
+}
+
+func (s *conversationService) ListGroupChats(userID uuid.UUID) ([]dto.GroupChatResponse, error) {
+	groupChats, err := s.convRepo.ListGroupChatsByUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]dto.GroupChatResponse, len(groupChats))
+	for i, gc := range groupChats {
+		var members []dto.GroupChatMemberResponse
+		for _, m := range gc.Members {
+			name := m.User.FullName
+			if name == "" {
+				name = m.User.FirstName + " " + m.User.LastName
+			}
+			members = append(members, dto.GroupChatMemberResponse{
+				ID:        m.User.ID,
+				Name:      strings.TrimSpace(name),
+				Role:      m.Role,
+				AvatarURL: m.User.AvatarURL,
+			})
+		}
+
+		res[i] = dto.GroupChatResponse{
+			ID:              gc.ID,
+			TopicID:         gc.TopicID,
+			ProjectID:       gc.ProjectID,
+			Title:           gc.Title,
+			Badge:           gc.Badge,
+			LastMessage:     gc.LastMessage,
+			LastMessageTime: gc.LastMessageTime,
+			CreatedAt:       gc.CreatedAt,
+			Members:         members,
+		}
+	}
+
+	return res, nil
+}
+
+func (s *conversationService) ListGroupMessages(userID uuid.UUID, groupChatID uuid.UUID, page, limit int) ([]dto.GroupMessageResponse, int64, error) {
+	gc, err := s.convRepo.GetGroupChatByID(groupChatID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if gc == nil {
+		return nil, 0, errors.New("group chat not found")
+	}
+
+	isMember, err := s.convRepo.IsGroupChatMember(groupChatID, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if !isMember {
+		return nil, 0, errors.New("unauthorized to view messages in this group chat")
+	}
+
+	messages, total, err := s.convRepo.ListGroupMessages(groupChatID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	res := make([]dto.GroupMessageResponse, len(messages))
+	for i, m := range messages {
+		var senderName, senderRole, senderAvatar string
+		if m.Sender != nil {
+			senderName = m.Sender.FullName
+			senderRole = m.Sender.Role
+			senderAvatar = m.Sender.AvatarURL
+		} else if m.IsSystemMessage {
+			senderName = "Sistem Nalakarsa"
+			senderRole = "System"
+		}
+
+		res[i] = dto.GroupMessageResponse{
+			ID:              m.ID,
+			GroupChatID:     m.GroupChatID,
+			SenderID:        m.SenderID,
+			SenderName:      senderName,
+			SenderRole:      senderRole,
+			SenderAvatar:    senderAvatar,
+			IsSystemMessage: m.IsSystemMessage,
+			Content:         m.Content,
+			CreatedAt:       m.CreatedAt,
+		}
+	}
+
+	return res, total, nil
+}
+
+func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uuid.UUID, req dto.SendGroupMessageRequest) (*dto.GroupMessageResponse, error) {
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		content = strings.TrimSpace(req.Text)
+	}
+	if content == "" {
+		return nil, errors.New("message content is required")
+	}
+
+	gc, err := s.convRepo.GetGroupChatByID(groupChatID)
+	if err != nil {
+		return nil, err
+	}
+	if gc == nil {
+		return nil, errors.New("group chat not found")
+	}
+
+	isMember, err := s.convRepo.IsGroupChatMember(groupChatID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, errors.New("unauthorized to send messages to this group chat")
+	}
+
+	sender, err := s.userRepo.GetByID(userID)
+	if err != nil || sender == nil {
+		return nil, errors.New("sender user not found")
+	}
+
+	msg := model.GroupMessage{
+		GroupChatID:     groupChatID,
+		SenderID:        &userID,
+		IsSystemMessage: false,
+		Content:         content,
+	}
+
+	if err := s.convRepo.CreateGroupMessage(&msg); err != nil {
+		return nil, err
+	}
+
+	_ = s.convRepo.UpdateGroupChatLastMessage(groupChatID, content)
+
+	response := &dto.GroupMessageResponse{
+		ID:              msg.ID,
+		GroupChatID:     msg.GroupChatID,
+		SenderID:        msg.SenderID,
+		SenderName:      sender.FullName,
+		SenderRole:      sender.Role,
+		SenderAvatar:    sender.AvatarURL,
+		IsSystemMessage: false,
+		Content:         msg.Content,
+		CreatedAt:       msg.CreatedAt,
+	}
+
+	// Trigger Supabase WebSocket broadcast asynchronously
+	topic := fmt.Sprintf("group-chat-%s", groupChatID.String())
+	utils.BroadcastToSupabase(topic, "new_message", response, s.cfg)
+
+	return response, nil
 }

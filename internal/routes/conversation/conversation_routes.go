@@ -18,4 +18,9 @@ func RegisterRoutes(protected *gin.RouterGroup, h *conversationhandler.Conversat
 	protected.POST("/chat/start", h.StartChat)
 	protected.GET("/chat/contacts/:id/messages", h.ListMessages)
 	protected.POST("/chat/contacts/:id/messages", h.SendMessage)
+
+	// Group Chats (FE Contract Specification)
+	protected.GET("/chats/groups", h.ListGroupChats)
+	protected.GET("/chats/groups/:groupId/messages", h.ListGroupMessages)
+	protected.POST("/chats/groups/:groupId/messages", h.SendGroupMessage)
 }
