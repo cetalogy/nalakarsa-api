@@ -2,6 +2,8 @@ package projectrepository
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"nalakarsa/internal/model"
@@ -347,7 +349,7 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 		}
 
 		if projectFound {
-			proj.Status = "Mitra Terkonfirmasi"
+			proj.Status = "Partner Confirmed"
 			if err := tx.Save(&proj).Error; err != nil {
 				return err
 			}
@@ -359,7 +361,7 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			}
 			title := "Collaboration Project"
 			desc := collabReq.ProposedContribution
-			category := "Teknologi"
+			category := "Technology"
 			if disc.Title != "" {
 				title = disc.Title
 				desc = disc.Description
@@ -371,8 +373,8 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				Title:              title,
 				Description:        desc,
 				Category:           category,
-				Needs:              "Praktisi",
-				Status:             "Mitra Terkonfirmasi",
+				Needs:              "Practitioner",
+				Status:             "Partner Confirmed",
 				Progress:           0,
 				SourceDiscussionID: collabReq.DiscussionID,
 			}
@@ -395,7 +397,7 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			tx.Create(&model.ProjectMember{
 				ProjectID: proj.ID,
 				UserID:    initiatorID,
-				Role:      "Inisiator",
+				Role:      "Initiator",
 				Status:    "active",
 			})
 		}
@@ -405,7 +407,7 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			tx.Create(&model.ProjectMember{
 				ProjectID: proj.ID,
 				UserID:    collabReq.ApplicantID,
-				Role:      "Mitra Kolaborasi",
+				Role:      "Collaboration Partner",
 				Status:    "active",
 			})
 		}
@@ -425,15 +427,25 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			}
 		}
 
+		var applicantUser model.User
+		applicantName := "A new collaborator"
+		if err := tx.Where("id = ?", collabReq.ApplicantID).First(&applicantUser).Error; err == nil {
+			if applicantUser.FullName != "" {
+				applicantName = applicantUser.FullName
+			} else if applicantUser.FirstName != "" {
+				applicantName = strings.TrimSpace(applicantUser.FirstName + " " + applicantUser.LastName)
+			}
+		}
+
 		now := time.Now()
-		welcomeMsg := "Welcome to the Project Collaboration Group. Confirmed partners can discuss here."
+		welcomeMsg := fmt.Sprintf("Welcome %s to the Project Collaboration Group!", applicantName)
 
 		if !groupChatFound {
 			groupChat = model.GroupChat{
 				TopicID:         collabReq.DiscussionID,
 				ProjectID:       &proj.ID,
 				Title:           proj.Title,
-				Badge:           "Grup Kolaborasi",
+				Badge:           "Collaboration Group",
 				LastMessage:     &welcomeMsg,
 				LastMessageTime: &now,
 			}
@@ -453,7 +465,7 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			tx.Create(&model.GroupChatMember{
 				GroupChatID: groupChat.ID,
 				UserID:      initiatorID,
-				Role:        "Inisiator / Ketua",
+				Role:        "Initiator",
 			})
 		}
 
@@ -462,7 +474,7 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			tx.Create(&model.GroupChatMember{
 				GroupChatID: groupChat.ID,
 				UserID:      collabReq.ApplicantID,
-				Role:        "Mitra Kolaborasi",
+				Role:        "Collaboration Partner",
 			})
 		}
 

@@ -22,6 +22,8 @@ type ConversationRepository interface {
 
 	// Messages
 	CreateMessage(msg *model.Message) error
+	GetMessageByID(id uuid.UUID) (*model.Message, error)
+	DeleteMessage(id uuid.UUID) error
 	ListMessages(conversationID uuid.UUID, limit int, cursor string) ([]model.Message, error)
 	CountUnread(conversationID, userID uuid.UUID) (int64, error)
 	CountTotalUnread(userID uuid.UUID) (int64, error)
@@ -35,6 +37,8 @@ type ConversationRepository interface {
 	IsGroupChatMember(groupChatID, userID uuid.UUID) (bool, error)
 	ListGroupMessages(groupChatID uuid.UUID, page, limit int) ([]model.GroupMessage, int64, error)
 	CreateGroupMessage(msg *model.GroupMessage) error
+	GetGroupMessageByID(id uuid.UUID) (*model.GroupMessage, error)
+	DeleteGroupMessage(id uuid.UUID) error
 	UpdateGroupChatLastMessage(groupChatID uuid.UUID, lastMessage string) error
 }
 
@@ -195,7 +199,9 @@ func (r *pgConversationRepository) ListGroupChatsByUser(userID uuid.UUID) ([]mod
 
 func (r *pgConversationRepository) GetGroupChatByID(id uuid.UUID) (*model.GroupChat, error) {
 	var groupChat model.GroupChat
-	err := r.db.Preload("Members.User").Where("id = ?", id).First(&groupChat).Error
+	err := r.db.Preload("Members.User").
+		Where("id = ? OR topic_id = ? OR project_id = ?", id, id, id).
+		First(&groupChat).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -206,9 +212,15 @@ func (r *pgConversationRepository) GetGroupChatByID(id uuid.UUID) (*model.GroupC
 }
 
 func (r *pgConversationRepository) IsGroupChatMember(groupChatID, userID uuid.UUID) (bool, error) {
+	// First resolve the real groupChat.ID in case groupChatID was a topic_id or project_id
+	gc, err := r.GetGroupChatByID(groupChatID)
+	if err != nil || gc == nil {
+		return false, err
+	}
+
 	var count int64
-	err := r.db.Model(&model.GroupChatMember{}).
-		Where("group_chat_id = ? AND user_id = ?", groupChatID, userID).
+	err = r.db.Model(&model.GroupChatMember{}).
+		Where("group_chat_id = ? AND user_id = ?", gc.ID, userID).
 		Count(&count).Error
 	return count > 0, err
 }
@@ -242,4 +254,36 @@ func (r *pgConversationRepository) UpdateGroupChatLastMessage(groupChatID uuid.U
 			"last_message":      lastMessage,
 			"last_message_time": gorm.Expr("NOW()"),
 		}).Error
+}
+
+func (r *pgConversationRepository) GetMessageByID(id uuid.UUID) (*model.Message, error) {
+	var msg model.Message
+	err := r.db.Where("id = ?", id).First(&msg).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (r *pgConversationRepository) DeleteMessage(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&model.Message{}).Error
+}
+
+func (r *pgConversationRepository) GetGroupMessageByID(id uuid.UUID) (*model.GroupMessage, error) {
+	var msg model.GroupMessage
+	err := r.db.Where("id = ?", id).First(&msg).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (r *pgConversationRepository) DeleteGroupMessage(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&model.GroupMessage{}).Error
 }

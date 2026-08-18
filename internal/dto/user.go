@@ -67,19 +67,67 @@ type FollowUserItemResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	FirstName      string `json:"firstName" binding:"required"`
-	MiddleName     string `json:"middleName"`
-	LastName       string `json:"lastName" binding:"required"`
-	FullName       string `json:"fullName"` // usually ignored in request, derived from parts
-	PrefixTitle    string `json:"prefixTitle"`
-	SuffixTitle    string `json:"suffixTitle"`
-	Affiliation    string `json:"affiliation" binding:"required"`
-	Location       string `json:"location" binding:"required"`
-	Expertise      string `json:"expertise" binding:"required"`
-	Industry       string `json:"industry"`
-	Bio            string `json:"bio"`
-	Mission        string `json:"mission"`
-	AvatarURL      string `json:"avatar_url"`
+	FirstName        string `json:"firstName"`
+	FirstNameSnake   string `json:"first_name"`
+	MiddleName       string `json:"middleName"`
+	MiddleNameSnake  string `json:"middle_name"`
+	LastName         string `json:"lastName"`
+	LastNameSnake    string `json:"last_name"`
+	FullName         string `json:"fullName"`
+	FullNameSnake    string `json:"full_name"`
+	PrefixTitle      string `json:"prefixTitle"`
+	PrefixTitleSnake string `json:"prefix_title"`
+	SuffixTitle      string `json:"suffixTitle"`
+	SuffixTitleSnake string `json:"suffix_title"`
+	Affiliation      string `json:"affiliation"`
+	Location         string `json:"location"`
+	Expertise        string `json:"expertise"`
+	Industry         string `json:"industry"`
+	Bio              string `json:"bio"`
+	Mission          string `json:"mission"`
+	AvatarURL        string `json:"avatar_url"`
+}
+
+func (r *UpdateProfileRequest) GetFirstName() string {
+	if r.FirstName != "" {
+		return r.FirstName
+	}
+	return r.FirstNameSnake
+}
+
+func (r *UpdateProfileRequest) GetMiddleName() string {
+	if r.MiddleName != "" {
+		return r.MiddleName
+	}
+	return r.MiddleNameSnake
+}
+
+func (r *UpdateProfileRequest) GetLastName() string {
+	if r.LastName != "" {
+		return r.LastName
+	}
+	return r.LastNameSnake
+}
+
+func (r *UpdateProfileRequest) GetFullName() string {
+	if r.FullName != "" {
+		return r.FullName
+	}
+	return r.FullNameSnake
+}
+
+func (r *UpdateProfileRequest) GetPrefixTitle() string {
+	if r.PrefixTitle != "" {
+		return r.PrefixTitle
+	}
+	return r.PrefixTitleSnake
+}
+
+func (r *UpdateProfileRequest) GetSuffixTitle() string {
+	if r.SuffixTitle != "" {
+		return r.SuffixTitle
+	}
+	return r.SuffixTitleSnake
 }
 
 type PaginationResponse struct {

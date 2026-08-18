@@ -88,10 +88,10 @@ func main() {
 
 	// Services
 	authService := authservice.NewAuthService(userRepo, cfg)
-	userService := userservice.NewUserService(userRepo, connRepo, projRepo)
+	userService := userservice.NewUserService(userRepo, connRepo, projRepo, notifRepo)
 	discService := discussionservice.NewDiscussionService(discRepo, userRepo)
 	connService := connectionservice.NewConnectionService(connRepo, userRepo)
-	projService := projectservice.NewProjectService(projRepo, userRepo, discRepo)
+	projService := projectservice.NewProjectService(projRepo, userRepo, discRepo, notifRepo)
 	convService := conversationservice.NewConversationService(convRepo, userRepo, cfg)
 	notifService := notificationservice.NewNotificationService(notifRepo)
 	dashService := dashboardservice.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)

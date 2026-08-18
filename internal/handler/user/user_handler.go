@@ -3,6 +3,8 @@ package userhandler
 import (
 	"log"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
@@ -26,12 +28,25 @@ func NewUserHandler(userService userservice.UserService, cfg *config.Config) *Us
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
-		return
+	var userID uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		userID = userIDInterface.(uuid.UUID)
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				userID = claims.UserID
+			} else {
+				utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Invalid or expired access token")
+				return
+			}
+		} else {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 	}
-	userID := userIDInterface.(uuid.UUID)
 
 	profile, err := h.userService.GetProfile(userID)
 	if err != nil {
@@ -43,12 +58,25 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
-		return
+	var userID uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		userID = userIDInterface.(uuid.UUID)
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				userID = claims.UserID
+			} else {
+				utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Invalid or expired access token")
+				return
+			}
+		} else {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 	}
-	userID := userIDInterface.(uuid.UUID)
 
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -72,13 +100,18 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 func (h *UserHandler) GetPublicProfile(c *gin.Context) {
 	idStr := c.Param("id")
-	userID, err := uuid.Parse(idStr)
-	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid user ID format")
+	if idStr == "" || idStr == "me" {
+		h.GetProfile(c)
 		return
 	}
 
-	profile, err := h.userService.GetPublicProfile(userID)
+	targetUser, err := h.userService.ResolveUser(idStr)
+	if err != nil || targetUser == nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, "User not found")
+		return
+	}
+
+	profile, err := h.userService.GetPublicProfile(targetUser.ID)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, err.Error())
 		return
@@ -117,12 +150,25 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 }
 
 func (h *UserHandler) GetMyProjects(c *gin.Context) {
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
-		return
+	var userID uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		userID = userIDInterface.(uuid.UUID)
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				userID = claims.UserID
+			} else {
+				utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Invalid or expired access token")
+				return
+			}
+		} else {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 	}
-	userID := userIDInterface.(uuid.UUID)
 
 	projects, err := h.userService.GetMyProjects(userID)
 	if err != nil {
@@ -134,12 +180,25 @@ func (h *UserHandler) GetMyProjects(c *gin.Context) {
 }
 
 func (h *UserHandler) GetMyStats(c *gin.Context) {
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
-		return
+	var userID uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		userID = userIDInterface.(uuid.UUID)
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				userID = claims.UserID
+			} else {
+				utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Invalid or expired access token")
+				return
+			}
+		} else {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 	}
-	userID := userIDInterface.(uuid.UUID)
 
 	stats, err := h.userService.GetMyStats(userID)
 	if err != nil {
@@ -151,35 +210,66 @@ func (h *UserHandler) GetMyStats(c *gin.Context) {
 }
 
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
-		return
+	var userID uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		userID = userIDInterface.(uuid.UUID)
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				userID = claims.UserID
+			} else {
+				utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Invalid or expired access token")
+				return
+			}
+		} else {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 	}
-	userID := userIDInterface.(uuid.UUID)
 
-	// Get file from form
+	// Get file from form (flexible key: avatar, file, image, photo)
 	file, err := c.FormFile("avatar")
 	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File 'avatar' is required")
+		file, err = c.FormFile("file")
+	}
+	if err != nil {
+		file, err = c.FormFile("image")
+	}
+	if err != nil {
+		file, err = c.FormFile("photo")
+	}
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File 'avatar' (or 'file' / 'image') is required")
 		return
 	}
 
-	// Validate file size (max 2MB)
-	const maxFileSize = 2 * 1024 * 1024 // 2MB
+	log.Printf("[AVATAR UPLOAD] User %s uploading file '%s' (%d bytes, Content-Type: %s)", userID, file.Filename, file.Size, file.Header.Get("Content-Type"))
+
+	// Validate file size (max 5MB)
+	const maxFileSize = 5 * 1024 * 1024 // 5MB
 	if file.Size > maxFileSize {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File size exceeds 2MB limit")
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File size exceeds 5MB limit")
 		return
 	}
 
-	// Validate file type (must be image)
+	// Validate file type (strictly JPG, JPEG, PNG)
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+	}
 	contentType := file.Header.Get("Content-Type")
 	allowedTypes := map[string]bool{
-		"image/jpeg": true,
-		"image/jpg":  true,
-		"image/png":  true,
+		"image/jpeg":               true,
+		"image/jpg":                true,
+		"image/png":                true,
+		"application/octet-stream": true, // fallback for binary streams with valid extension
 	}
-	if !allowedTypes[contentType] {
+	if !allowedExts[ext] || !allowedTypes[contentType] {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid file type. Only JPG, JPEG, and PNG are allowed")
 		return
 	}
@@ -187,12 +277,14 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	// Upload to Supabase Storage
 	secureURL, err := utils.UploadAvatarToSupabase(userID, file, h.cfg)
 	if err != nil {
+		log.Printf("[AVATAR UPLOAD FAILED] User %s: %v", userID, err)
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, "Failed to upload avatar to cloud storage: "+err.Error())
 		return
 	}
 
 	// Update in database
 	if err := h.userService.UpdateAvatar(userID, secureURL); err != nil {
+		log.Printf("[AVATAR DB UPDATE FAILED] User %s: %v", userID, err)
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, "Failed to update profile avatar: "+err.Error())
 		return
 	}
@@ -201,27 +293,43 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		log.Printf("failed to cleanup old avatar variants for user %s: %v", userID, err)
 	}
 
+	log.Printf("[AVATAR UPLOAD SUCCESS] User %s avatar set to %s", userID, secureURL)
+
 	utils.JSONResponse(c, http.StatusOK, "Avatar uploaded successfully", gin.H{
 		"avatar_url": secureURL,
+		"avatarUrl":  secureURL,
 	}, nil)
 }
 
 func (h *UserHandler) ToggleFollow(c *gin.Context) {
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
-		return
+	var currentUserID uuid.UUID
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		currentUserID = userIDInterface.(uuid.UUID)
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				currentUserID = claims.UserID
+			} else {
+				utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Invalid or expired access token")
+				return
+			}
+		} else {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 	}
-	currentUserID := userIDInterface.(uuid.UUID)
 
 	targetIDStr := c.Param("id")
-	targetUserID, err := uuid.Parse(targetIDStr)
-	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid target user ID format")
+	targetUser, err := h.userService.ResolveUser(targetIDStr)
+	if err != nil || targetUser == nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, "Target user not found")
 		return
 	}
 
-	res, err := h.userService.ToggleFollow(currentUserID, targetUserID)
+	res, err := h.userService.ToggleFollow(currentUserID, targetUser.ID)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "target user not found" {
@@ -238,16 +346,51 @@ func (h *UserHandler) ToggleFollow(c *gin.Context) {
 
 func (h *UserHandler) GetFollowers(c *gin.Context) {
 	targetIDStr := c.Param("id")
-	targetUserID, err := uuid.Parse(targetIDStr)
-	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid user ID format")
-		return
+	var targetUserID uuid.UUID
+
+	if targetIDStr == "" || targetIDStr == "me" {
+		userIDInterface, exists := c.Get("user_id")
+		if !exists {
+			// Fallback: parse Bearer token from header if hit via public group
+			authHeader := c.GetHeader("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+				claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+				if err == nil {
+					targetUserID = claims.UserID
+					exists = true
+				}
+			}
+		} else {
+			targetUserID = userIDInterface.(uuid.UUID)
+		}
+
+		if !exists {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+	} else {
+		targetUser, err := h.userService.ResolveUser(targetIDStr)
+		if err != nil || targetUser == nil {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, "User not found")
+			return
+		}
+		targetUserID = targetUser.ID
 	}
 
 	var currentUserID *uuid.UUID
 	if userIDInterface, exists := c.Get("user_id"); exists {
 		uid := userIDInterface.(uuid.UUID)
 		currentUserID = &uid
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				currentUserID = &claims.UserID
+			}
+		}
 	}
 
 	page, limit := utils.ParsePaginationRequest(c)
@@ -279,16 +422,51 @@ func (h *UserHandler) GetFollowers(c *gin.Context) {
 
 func (h *UserHandler) GetFollowing(c *gin.Context) {
 	targetIDStr := c.Param("id")
-	targetUserID, err := uuid.Parse(targetIDStr)
-	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid user ID format")
-		return
+	var targetUserID uuid.UUID
+
+	if targetIDStr == "" || targetIDStr == "me" {
+		userIDInterface, exists := c.Get("user_id")
+		if !exists {
+			// Fallback: parse Bearer token from header if hit via public group
+			authHeader := c.GetHeader("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+				claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+				if err == nil {
+					targetUserID = claims.UserID
+					exists = true
+				}
+			}
+		} else {
+			targetUserID = userIDInterface.(uuid.UUID)
+		}
+
+		if !exists {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+	} else {
+		targetUser, err := h.userService.ResolveUser(targetIDStr)
+		if err != nil || targetUser == nil {
+			utils.ErrorJSONResponseWithMessage(c, http.StatusNotFound, "User not found")
+			return
+		}
+		targetUserID = targetUser.ID
 	}
 
 	var currentUserID *uuid.UUID
 	if userIDInterface, exists := c.Get("user_id"); exists {
 		uid := userIDInterface.(uuid.UUID)
 		currentUserID = &uid
+	} else {
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateToken(tokenStr, h.cfg.JWTSecret)
+			if err == nil {
+				currentUserID = &claims.UserID
+			}
+		}
 	}
 
 	page, limit := utils.ParsePaginationRequest(c)
@@ -317,4 +495,3 @@ func (h *UserHandler) GetFollowing(c *gin.Context) {
 
 	utils.JSONResponse(c, http.StatusOK, "Following list retrieved successfully", following, pagination)
 }
-

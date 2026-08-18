@@ -7,7 +7,7 @@ import (
 )
 
 type CreateDiscussionRequest struct {
-	Title       string `json:"title" binding:"required,min=5"`
+	Title       string `json:"title" binding:"required,min=1"`
 	Description string `json:"description"`
 	Excerpt     string `json:"excerpt"`
 	Category    string `json:"category" binding:"required"`
@@ -22,7 +22,7 @@ func (r *CreateDiscussionRequest) GetDescription() string {
 }
 
 type UpdateDiscussionRequest struct {
-	Title       string `json:"title" binding:"required,min=5"`
+	Title       string `json:"title" binding:"required,min=1"`
 	Description string `json:"description"`
 	Excerpt     string `json:"excerpt"`
 	Category    string `json:"category" binding:"required"`
@@ -100,6 +100,6 @@ type DiscussionDetailResponse struct {
 }
 
 type CreateReplyRequest struct {
-	Content  string     `json:"content" binding:"required,min=3"`
+	Content  string     `json:"content" binding:"required,min=1"`
 	ParentID *uuid.UUID `json:"parent_id"`
 }

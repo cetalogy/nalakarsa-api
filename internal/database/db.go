@@ -131,5 +131,9 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_replies_discussion_created ON discussion_replies (discussion_id, created_at DESC)").Error
 	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_discussion_user ON discussion_votes (discussion_id, user_id)").Error
 
+	// Clean up legacy duplicated avatar URL prefixes in users table
+	_ = db.Exec("UPDATE users SET avatar_url = REPLACE(avatar_url, '/avatars/avatars/avatars/', '/avatars/') WHERE avatar_url LIKE '%/avatars/avatars/avatars/%'").Error
+	_ = db.Exec("UPDATE users SET avatar_url = REPLACE(avatar_url, '/avatars/avatars/', '/avatars/') WHERE avatar_url LIKE '%/avatars/avatars/%'").Error
+
 	return db, nil
 }

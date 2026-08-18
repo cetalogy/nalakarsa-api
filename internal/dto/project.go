@@ -9,8 +9,8 @@ import (
 // --- Project DTOs (replaces Collaboration) ---
 
 type CreateProjectRequest struct {
-	Title         string     `json:"title" binding:"required,min=5"`
-	Description   string     `json:"description" binding:"required,min=15"`
+	Title         string     `json:"title" binding:"required,min=1"`
+	Description   string     `json:"description" binding:"required,min=1"`
 	Category      string     `json:"category" binding:"required"`
 	Needs         string     `json:"needs" binding:"omitempty,oneof=Akademisi Praktisi Profesional"`
 	FundingStatus string     `json:"funding_status"`
@@ -23,8 +23,8 @@ type CreateCollaborationRequest struct {
 }
 
 type UpdateProjectRequest struct {
-	Title         string     `json:"title" binding:"required,min=5"`
-	Description   string     `json:"description" binding:"required,min=15"`
+	Title         string     `json:"title" binding:"required,min=1"`
+	Description   string     `json:"description" binding:"required,min=1"`
 	Category      string     `json:"category" binding:"required"`
 	Status        string     `json:"status" binding:"required,oneof=draft open in_review active completed archived"`
 	Needs         string     `json:"needs" binding:"omitempty,oneof=Akademisi Praktisi Profesional"`
@@ -59,7 +59,7 @@ type ProjectDetailResponse struct {
 // --- Project Application ---
 
 type ApplyProjectRequest struct {
-	Message string `json:"message" binding:"required,min=10"`
+	Message string `json:"message" binding:"required,min=1"`
 }
 
 type ApplicantResponse struct {
@@ -88,7 +88,7 @@ type UpdateApplicationStatusRequest struct {
 type SubmitCollaborationRequest struct {
 	DiscussionID         *uuid.UUID `json:"discussionId"`
 	ProjectID            *uuid.UUID `json:"projectId"`
-	ProposedContribution string     `json:"proposedContribution" binding:"required,min=5"`
+	ProposedContribution string     `json:"proposedContribution" binding:"required,min=1"`
 }
 
 type CollabApplicantResponse struct {
@@ -118,7 +118,7 @@ type ApproveCollaborationResponse struct {
 }
 
 type RejectCollaborationRequest struct {
-	Reason string `json:"reason" binding:"required,min=3"`
+	Reason string `json:"reason" binding:"required,min=1"`
 }
 
 type RejectCollaborationResponse struct {

@@ -32,6 +32,7 @@ type UserRepository interface {
 	GetFollowing(userID uuid.UUID, page, limit int) ([]model.User, int64, error)
 	CountFollowers(userID uuid.UUID) (int64, error)
 	CountFollowing(userID uuid.UUID) (int64, error)
+	GetByIDOrIdentifier(identifier string) (*model.User, error)
 }
 
 type pgUserRepository struct {
@@ -76,6 +77,42 @@ func (r *pgUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *pgUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, error) {
+	trimmed := strings.TrimSpace(identifier)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	trimmedClean := strings.TrimPrefix(trimmed, "user_")
+
+	// 1. Try parsing as direct UUID
+	if uid, err := uuid.Parse(trimmedClean); err == nil {
+		return r.GetByID(uid)
+	}
+
+	// 2. Try lookup by email
+	if strings.Contains(trimmed, "@") {
+		return r.GetByEmail(trimmed)
+	}
+
+	// 3. Try lookup by full_name exact or ILIKE
+	var u model.User
+	err := r.db.Where("LOWER(TRIM(full_name)) = LOWER(TRIM(?))", trimmedClean).First(&u).Error
+	if err == nil {
+		return &u, nil
+	}
+
+	err = r.db.Where("LOWER(full_name) LIKE LOWER(?)", "%"+trimmedClean+"%").First(&u).Error
+	if err == nil {
+		return &u, nil
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return nil, err
 }
 
 func (r *pgUserRepository) UpdateProfile(u *model.User) error {

@@ -1,12 +1,15 @@
 package projectservice
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	discussionrepository "nalakarsa/internal/repository/discussion"
+	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -35,13 +38,24 @@ type ProjectService interface {
 }
 
 type projectService struct {
-	projRepo projectrepository.ProjectRepository
-	userRepo userrepository.UserRepository
-	discRepo discussionrepository.DiscussionRepository
+	projRepo  projectrepository.ProjectRepository
+	userRepo  userrepository.UserRepository
+	discRepo  discussionrepository.DiscussionRepository
+	notifRepo notificationrepository.NotificationRepository
 }
 
-func NewProjectService(projRepo projectrepository.ProjectRepository, userRepo userrepository.UserRepository, discRepo discussionrepository.DiscussionRepository) ProjectService {
-	return &projectService{projRepo: projRepo, userRepo: userRepo, discRepo: discRepo}
+func NewProjectService(
+	projRepo projectrepository.ProjectRepository,
+	userRepo userrepository.UserRepository,
+	discRepo discussionrepository.DiscussionRepository,
+	notifRepo notificationrepository.NotificationRepository,
+) ProjectService {
+	return &projectService{
+		projRepo:  projRepo,
+		userRepo:  userRepo,
+		discRepo:  discRepo,
+		notifRepo: notifRepo,
+	}
 }
 
 func (s *projectService) Create(userID uuid.UUID, req dto.CreateProjectRequest) (uuid.UUID, error) {
@@ -222,6 +236,28 @@ func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.Ap
 		return uuid.Nil, errors.New("you have already applied to this project")
 	}
 
+	// Send in-app notification to PROJECT OWNER
+	applicant, _ := s.userRepo.GetByID(userID)
+	applicantName := "Someone"
+	if applicant != nil && applicant.FullName != "" {
+		applicantName = applicant.FullName
+	}
+
+	notifPayload, _ := json.Marshal(map[string]interface{}{
+		"title":   "New Project Application",
+		"message": fmt.Sprintf("%s has applied to join project '%s'", applicantName, p.Title),
+	})
+
+	notif := model.Notification{
+		UserID:       p.OwnerID, // Sent to PROJECT OWNER
+		Type:         "collaboration",
+		ActorID:      &userID, // Applicant user
+		ResourceType: "project",
+		ResourceID:   &p.ID,
+		Payload:      string(notifPayload),
+	}
+	_ = s.notifRepo.Create(&notif)
+
 	return app.ID, nil
 }
 
@@ -302,6 +338,26 @@ func (s *projectService) UpdateApplicationStatus(userID uuid.UUID, projectID uui
 		}
 		_ = s.projRepo.AddMember(member)
 	}
+
+	// Send in-app notification to APPLICANT regarding their status update
+	notifTitle := "Project Application Accepted"
+	if req.Status == "rejected" {
+		notifTitle = "Project Application Rejected"
+	}
+	notifPayload, _ := json.Marshal(map[string]interface{}{
+		"title":   notifTitle,
+		"message": fmt.Sprintf("Your application status for project '%s' has been updated to: %s", p.Title, req.Status),
+	})
+
+	notif := model.Notification{
+		UserID:       app.ApplicantID, // Sent to APPLICANT
+		Type:         "collaboration",
+		ActorID:      &userID, // Project Owner / Initiator
+		ResourceType: "project",
+		ResourceID:   &p.ID,
+		Payload:      string(notifPayload),
+	}
+	_ = s.notifRepo.Create(&notif)
 
 	return nil
 }
@@ -419,6 +475,7 @@ func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.Subm
 	}
 
 	var title string
+	var targetOwnerID uuid.UUID
 
 	// Validate target resource & prevent applying to own discussion/project
 	if req.DiscussionID != nil {
@@ -429,6 +486,7 @@ func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.Subm
 		if disc.UserID == applicantID {
 			return nil, errors.New("cannot apply for collaboration on your own discussion topic")
 		}
+		targetOwnerID = disc.UserID
 		title = disc.Title
 	} else if req.ProjectID != nil {
 		proj, err := s.projRepo.GetByID(*req.ProjectID)
@@ -438,6 +496,7 @@ func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.Subm
 		if proj.OwnerID == applicantID {
 			return nil, errors.New("cannot apply for collaboration on your own project")
 		}
+		targetOwnerID = proj.OwnerID
 		title = proj.Title
 	}
 
@@ -461,6 +520,22 @@ func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.Subm
 	if err := s.projRepo.CreateCollabRequest(&collabReq); err != nil {
 		return nil, err
 	}
+
+	// Send in-app notification to OWNER / INITIATOR of the target topic or project
+	notifPayload, _ := json.Marshal(map[string]interface{}{
+		"title":   "New Collaboration Request",
+		"message": fmt.Sprintf("%s has submitted a collaboration request on '%s'", applicant.FullName, title),
+	})
+
+	notif := model.Notification{
+		UserID:       targetOwnerID, // Sent to OWNER / INITIATOR
+		Type:         "collaboration",
+		ActorID:      &applicantID, // Applicant user
+		ResourceType: "collaboration_request",
+		ResourceID:   &collabReq.ID,
+		Payload:      string(notifPayload),
+	}
+	_ = s.notifRepo.Create(&notif)
 
 	return &dto.CollaborationRequestItemResponse{
 		ID:                   collabReq.ID,
@@ -487,7 +562,7 @@ func (s *projectService) ListCollabRequests(userID uuid.UUID) ([]dto.Collaborati
 
 	res := make([]dto.CollaborationRequestItemResponse, len(requests))
 	for i, r := range requests {
-		title := "Proyek Kolaborasi"
+		title := "Collaboration Project"
 		if r.Discussion != nil && r.Discussion.Title != "" {
 			title = r.Discussion.Title
 		} else if r.Project != nil && r.Project.Title != "" {
@@ -522,13 +597,35 @@ func (s *projectService) ApproveCollabRequest(requestID, initiatorID uuid.UUID) 
 	}
 
 	var projectID *uuid.UUID
+	projectTitle := "Collaboration Project"
 	if proj != nil {
 		projectID = &proj.ID
+		if proj.Title != "" {
+			projectTitle = proj.Title
+		}
 	}
 
 	var groupChatID uuid.UUID
 	if groupChat != nil {
 		groupChatID = groupChat.ID
+	}
+
+	// Send in-app notification to the APPLICANT (user who submitted request)
+	if s.notifRepo != nil {
+		notifPayload, _ := json.Marshal(map[string]interface{}{
+			"title":   "Collaboration Request Approved",
+			"message": fmt.Sprintf("Your collaboration request on '%s' has been approved! You have been added to the Project Collaboration Group.", projectTitle),
+		})
+
+		notif := model.Notification{
+			UserID:       req.ApplicantID, // Sent to APPLICANT
+			Type:         "collaboration",
+			ActorID:      &initiatorID, // Project Initiator
+			ResourceType: "project",
+			ResourceID:   projectID,
+			Payload:      string(notifPayload),
+		}
+		_ = s.notifRepo.Create(&notif)
 	}
 
 	return &dto.ApproveCollaborationResponse{
@@ -548,6 +645,29 @@ func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID, r
 	reasonStr := ""
 	if collabReq.RejectionReason != nil {
 		reasonStr = *collabReq.RejectionReason
+	}
+
+	// Send in-app notification to the APPLICANT (user who submitted request)
+	if s.notifRepo != nil {
+		msg := "Your collaboration request was declined."
+		if reasonStr != "" {
+			msg = fmt.Sprintf("Your collaboration request was declined: %s", reasonStr)
+		}
+
+		notifPayload, _ := json.Marshal(map[string]interface{}{
+			"title":   "Collaboration Request Declined",
+			"message": msg,
+		})
+
+		notif := model.Notification{
+			UserID:       collabReq.ApplicantID, // Sent to APPLICANT
+			Type:         "collaboration",
+			ActorID:      &initiatorID, // Project Initiator
+			ResourceType: "collaboration_request",
+			ResourceID:   &collabReq.ID,
+			Payload:      string(notifPayload),
+		}
+		_ = s.notifRepo.Create(&notif)
 	}
 
 	return &dto.RejectCollaborationResponse{

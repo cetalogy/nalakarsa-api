@@ -17,6 +17,8 @@ func RegisterRoutes(public *gin.RouterGroup, protected *gin.RouterGroup, h *user
 	protected.PATCH("/users/me", h.UpdateProfile)
 	protected.GET("/users/me/projects", h.GetMyProjects)
 	protected.GET("/users/me/stats", h.GetMyStats)
+	protected.GET("/users/me/followers", h.GetFollowers)
+	protected.GET("/users/me/following", h.GetFollowing)
 	protected.GET("/auth/me", h.GetProfile)
 	protected.PATCH("/auth/me", h.UpdateProfile)
 	protected.POST("/users/me/avatar", h.UploadAvatar)

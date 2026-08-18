@@ -16,6 +16,9 @@ nalakarsa_test_build
 .env
 .env.local
 .env.*.local
+serviceAccountKey.json
+firebase-service-account*.json
+
 
 # IDE and Editor Files
 # --------------------
