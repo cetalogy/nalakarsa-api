@@ -28,6 +28,14 @@ type ConversationRepository interface {
 
 	// Update conversation
 	UpdateLastMessageAt(conversationID uuid.UUID) error
+
+	// Group Chats (FE Contract Specification)
+	ListGroupChatsByUser(userID uuid.UUID) ([]model.GroupChat, error)
+	GetGroupChatByID(id uuid.UUID) (*model.GroupChat, error)
+	IsGroupChatMember(groupChatID, userID uuid.UUID) (bool, error)
+	ListGroupMessages(groupChatID uuid.UUID, page, limit int) ([]model.GroupMessage, int64, error)
+	CreateGroupMessage(msg *model.GroupMessage) error
+	UpdateGroupChatLastMessage(groupChatID uuid.UUID, lastMessage string) error
 }
 
 type pgConversationRepository struct {
@@ -171,4 +179,67 @@ func (r *pgConversationRepository) UpdateLastMessageAt(conversationID uuid.UUID)
 		"UPDATE conversations SET last_message_at = NOW(), updated_at = NOW() WHERE id = ?",
 		conversationID,
 	).Error
+}
+
+func (r *pgConversationRepository) ListGroupChatsByUser(userID uuid.UUID) ([]model.GroupChat, error) {
+	var groupChats []model.GroupChat
+	subQuery := r.db.Model(&model.GroupChatMember{}).Select("group_chat_id").Where("user_id = ?", userID)
+
+	err := r.db.Preload("Members.User").
+		Where("id IN (?)", subQuery).
+		Order("created_at desc").
+		Find(&groupChats).Error
+
+	return groupChats, err
+}
+
+func (r *pgConversationRepository) GetGroupChatByID(id uuid.UUID) (*model.GroupChat, error) {
+	var groupChat model.GroupChat
+	err := r.db.Preload("Members.User").Where("id = ?", id).First(&groupChat).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &groupChat, nil
+}
+
+func (r *pgConversationRepository) IsGroupChatMember(groupChatID, userID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.GroupChatMember{}).
+		Where("group_chat_id = ? AND user_id = ?", groupChatID, userID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (r *pgConversationRepository) ListGroupMessages(groupChatID uuid.UUID, page, limit int) ([]model.GroupMessage, int64, error) {
+	var messages []model.GroupMessage
+	var total int64
+
+	query := r.db.Model(&model.GroupMessage{}).Where("group_chat_id = ?", groupChatID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := query.Preload("Sender").
+		Order("created_at asc").
+		Limit(limit).Offset(offset).
+		Find(&messages).Error
+
+	return messages, total, err
+}
+
+func (r *pgConversationRepository) CreateGroupMessage(msg *model.GroupMessage) error {
+	return r.db.Create(msg).Error
+}
+
+func (r *pgConversationRepository) UpdateGroupChatLastMessage(groupChatID uuid.UUID, lastMessage string) error {
+	return r.db.Model(&model.GroupChat{}).
+		Where("id = ?", groupChatID).
+		Updates(map[string]interface{}{
+			"last_message":      lastMessage,
+			"last_message_time": gorm.Expr("NOW()"),
+		}).Error
 }

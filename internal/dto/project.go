@@ -83,6 +83,50 @@ type UpdateApplicationStatusRequest struct {
 	Status string `json:"status" binding:"required,oneof=accepted rejected"`
 }
 
+// --- Collaboration Request DTOs (FE Contract Specification) ---
+
+type SubmitCollaborationRequest struct {
+	DiscussionID         *uuid.UUID `json:"discussionId"`
+	ProjectID            *uuid.UUID `json:"projectId"`
+	ProposedContribution string     `json:"proposedContribution" binding:"required,min=5"`
+}
+
+type CollabApplicantResponse struct {
+	ID        uuid.UUID `json:"id"`
+	FullName  string    `json:"fullName"`
+	Role      string    `json:"role"`
+	AvatarURL string    `json:"avatar_url,omitempty"`
+}
+
+type CollaborationRequestItemResponse struct {
+	ID                   uuid.UUID               `json:"id"`
+	DiscussionID         *uuid.UUID              `json:"discussionId,omitempty"`
+	ProjectID            *uuid.UUID              `json:"projectId,omitempty"`
+	Title                string                  `json:"title,omitempty"`
+	ProposedContribution string                  `json:"proposedContribution"`
+	Status               string                  `json:"status"`
+	RejectionReason      *string                 `json:"rejectionReason,omitempty"`
+	CreatedAt            time.Time               `json:"createdAt"`
+	Applicant            CollabApplicantResponse `json:"applicant"`
+}
+
+type ApproveCollaborationResponse struct {
+	RequestID   uuid.UUID  `json:"requestId"`
+	Status      string     `json:"status"`
+	ProjectID   *uuid.UUID `json:"projectId"`
+	GroupChatID uuid.UUID  `json:"groupChatId"`
+}
+
+type RejectCollaborationRequest struct {
+	Reason string `json:"reason" binding:"required,min=3"`
+}
+
+type RejectCollaborationResponse struct {
+	RequestID uuid.UUID `json:"requestId"`
+	Status    string    `json:"status"`
+	Reason    string    `json:"reason,omitempty"`
+}
+
 // --- Project Member ---
 
 type ProjectMemberResponse struct {

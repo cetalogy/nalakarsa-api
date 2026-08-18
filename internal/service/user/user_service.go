@@ -20,6 +20,9 @@ type UserService interface {
 	ListUsers(search, role string, page, limit int) ([]dto.UserResponse, int64, error)
 	GetMyProjects(userID uuid.UUID) (*dto.MyProjectsResponse, error)
 	GetMyStats(userID uuid.UUID) (*dto.UserStatsResponse, error)
+	ToggleFollow(currentUserID, targetUserID uuid.UUID) (*dto.ToggleFollowResponse, error)
+	GetFollowers(currentUserID *uuid.UUID, targetUserID uuid.UUID, page, limit int) ([]dto.FollowUserItemResponse, int64, error)
+	GetFollowing(currentUserID *uuid.UUID, targetUserID uuid.UUID, page, limit int) ([]dto.FollowUserItemResponse, int64, error)
 }
 
 type userService struct {
@@ -158,15 +161,115 @@ func (s *userService) GetMyStats(userID uuid.UUID) (*dto.UserStatsResponse, erro
 	}
 
 	connCount, _ := s.connRepo.CountAccepted(userID)
+	followersCount, _ := s.userRepo.CountFollowers(userID)
+	followingCount, _ := s.userRepo.CountFollowing(userID)
 	projCount, _ := s.projRepo.CountByOwner(userID, "")
 	discCount, _ := s.userRepo.CountDiscussions(userID)
 
 	return &dto.UserStatsResponse{
 		ConnectionCount: connCount,
+		FollowersCount:  followersCount,
+		FollowingCount:  followingCount,
 		ProjectCount:    projCount,
 		DiscussionCount: discCount,
 		ViewCount:       int64(u.ViewCount),
 	}, nil
+}
+
+func (s *userService) ToggleFollow(currentUserID, targetUserID uuid.UUID) (*dto.ToggleFollowResponse, error) {
+	if currentUserID == targetUserID {
+		return nil, errors.New("cannot follow yourself")
+	}
+
+	targetUser, err := s.userRepo.GetByID(targetUserID)
+	if err != nil {
+		return nil, err
+	}
+	if targetUser == nil {
+		return nil, errors.New("target user not found")
+	}
+
+	isFollowing, err := s.userRepo.ToggleFollow(currentUserID, targetUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	message := "User followed successfully"
+	if !isFollowing {
+		message = "User unfollowed successfully"
+	}
+
+	return &dto.ToggleFollowResponse{
+		Message:      message,
+		IsFollowing:  isFollowing,
+		TargetUserID: targetUserID,
+	}, nil
+}
+
+func (s *userService) GetFollowers(currentUserID *uuid.UUID, targetUserID uuid.UUID, page, limit int) ([]dto.FollowUserItemResponse, int64, error) {
+	targetUser, err := s.userRepo.GetByID(targetUserID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if targetUser == nil {
+		return nil, 0, errors.New("user not found")
+	}
+
+	users, total, err := s.userRepo.GetFollowers(targetUserID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	res := make([]dto.FollowUserItemResponse, len(users))
+	for i, u := range users {
+		isFollowing := false
+		if currentUserID != nil && *currentUserID != u.ID {
+			isFollowing, _ = s.userRepo.IsFollowing(*currentUserID, u.ID)
+		}
+		res[i] = dto.FollowUserItemResponse{
+			ID:          u.ID,
+			FullName:    u.FullName,
+			Role:        u.Role,
+			Affiliation: u.Affiliation,
+			AvatarURL:   u.AvatarURL,
+			IsFollowing: isFollowing,
+		}
+	}
+
+	return res, total, nil
+}
+
+func (s *userService) GetFollowing(currentUserID *uuid.UUID, targetUserID uuid.UUID, page, limit int) ([]dto.FollowUserItemResponse, int64, error) {
+	targetUser, err := s.userRepo.GetByID(targetUserID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if targetUser == nil {
+		return nil, 0, errors.New("user not found")
+	}
+
+	users, total, err := s.userRepo.GetFollowing(targetUserID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	res := make([]dto.FollowUserItemResponse, len(users))
+	for i, u := range users {
+		isFollowing := false
+		if currentUserID != nil && *currentUserID != u.ID {
+			isFollowing, _ = s.userRepo.IsFollowing(*currentUserID, u.ID)
+		}
+		res[i] = dto.FollowUserItemResponse{
+			ID:          u.ID,
+			FullName:    u.FullName,
+			Role:        u.Role,
+			Affiliation: u.Affiliation,
+			AvatarURL:   u.AvatarURL,
+			IsFollowing: isFollowing,
+		}
+	}
+
+	return res, total, nil
 }
 
 func toUserResponse(u *model.User) *dto.UserResponse {

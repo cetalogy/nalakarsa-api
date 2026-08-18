@@ -2,6 +2,7 @@ package projectrepository
 
 import (
 	"errors"
+	"time"
 
 	"nalakarsa/internal/model"
 
@@ -35,6 +36,14 @@ type ProjectRepository interface {
 	UpdateMilestone(milestone *model.ProjectMilestone) error
 	ListMilestones(projectID uuid.UUID) ([]model.ProjectMilestone, error)
 	GetNextMilestone(projectID uuid.UUID) (*model.ProjectMilestone, error)
+
+	// Collaboration Requests (FE Contract)
+	CreateCollabRequest(req *model.CollaborationRequest) error
+	GetCollabRequestByID(id uuid.UUID) (*model.CollaborationRequest, error)
+	ListCollabRequestsForUser(userID uuid.UUID) ([]model.CollaborationRequest, error)
+	HasPendingCollabRequest(applicantID uuid.UUID, discussionID, projectID *uuid.UUID) (bool, error)
+	ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*model.CollaborationRequest, *model.Project, *model.GroupChat, error)
+	RejectCollabRequest(requestID, initiatorID uuid.UUID, reason string) (*model.CollaborationRequest, error)
 }
 
 type pgProjectRepository struct {
@@ -214,4 +223,341 @@ func (r *pgProjectRepository) GetNextMilestone(projectID uuid.UUID) (*model.Proj
 		return nil, err
 	}
 	return &milestone, nil
+}
+
+func (r *pgProjectRepository) CreateCollabRequest(req *model.CollaborationRequest) error {
+	return r.db.Create(req).Error
+}
+
+func (r *pgProjectRepository) GetCollabRequestByID(id uuid.UUID) (*model.CollaborationRequest, error) {
+	var req model.CollaborationRequest
+	err := r.db.Preload("Applicant").
+		Preload("Discussion").
+		Preload("Project").
+		Where("id = ?", id).First(&req).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (r *pgProjectRepository) HasPendingCollabRequest(applicantID uuid.UUID, discussionID, projectID *uuid.UUID) (bool, error) {
+	var count int64
+	q := r.db.Model(&model.CollaborationRequest{}).
+		Where("applicant_id = ? AND status = 'PENDING'", applicantID)
+
+	if discussionID != nil {
+		q = q.Where("discussion_id = ?", *discussionID)
+	}
+	if projectID != nil {
+		q = q.Where("project_id = ?", *projectID)
+	}
+
+	err := q.Count(&count).Error
+	return count > 0, err
+}
+
+func (r *pgProjectRepository) ListCollabRequestsForUser(userID uuid.UUID) ([]model.CollaborationRequest, error) {
+	var requests []model.CollaborationRequest
+
+	// Fetch requests where the user is either the applicant OR the initiator/owner of the target discussion or project
+	err := r.db.Preload("Applicant").
+		Preload("Discussion").
+		Preload("Project").
+		Joins("LEFT JOIN discussions ON discussions.id = collaboration_requests.discussion_id").
+		Joins("LEFT JOIN projects ON projects.id = collaboration_requests.project_id").
+		Where("collaboration_requests.applicant_id = ? OR discussions.user_id = ? OR projects.owner_id = ?", userID, userID, userID).
+		Order("collaboration_requests.created_at desc").
+		Find(&requests).Error
+
+	return requests, err
+}
+
+func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*model.CollaborationRequest, *model.Project, *model.GroupChat, error) {
+	var collabReq model.CollaborationRequest
+	if err := r.db.Preload("Applicant").Preload("Discussion").Preload("Project").Where("id = ?", requestID).First(&collabReq).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, nil, errors.New("collaboration request not found")
+		}
+		return nil, nil, nil, err
+	}
+
+	if collabReq.Status != "PENDING" {
+		return nil, nil, nil, errors.New("collaboration request has already been processed")
+	}
+
+	// Verify initiator authorization
+	var isAuthorized bool
+	if collabReq.DiscussionID != nil {
+		var disc model.Discussion
+		if err := r.db.Where("id = ?", *collabReq.DiscussionID).First(&disc).Error; err == nil {
+			if disc.UserID == initiatorID {
+				isAuthorized = true
+			}
+		}
+	}
+	if !isAuthorized && collabReq.ProjectID != nil {
+		var proj model.Project
+		if err := r.db.Where("id = ?", *collabReq.ProjectID).First(&proj).Error; err == nil {
+			if proj.OwnerID == initiatorID {
+				isAuthorized = true
+			}
+		}
+	}
+
+	if !isAuthorized {
+		return nil, nil, nil, errors.New("only project/topic initiator can approve collaboration requests")
+	}
+
+	var targetProject model.Project
+	var targetGroupChat model.GroupChat
+
+	// ATOMIC TRANSACTION WORKFLOW
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Update collaboration_requests status -> ACCEPTED
+		collabReq.Status = "ACCEPTED"
+		if err := tx.Save(&collabReq).Error; err != nil {
+			return err
+		}
+
+		// 2. Update discussions is_in_collaboration -> TRUE
+		if collabReq.DiscussionID != nil {
+			if err := tx.Model(&model.Discussion{}).
+				Where("id = ?", *collabReq.DiscussionID).
+				Update("is_in_collaboration", true).Error; err != nil {
+				return err
+			}
+		}
+
+		// 3. Find or Create Project with status 'Mitra Terkonfirmasi'
+		var proj model.Project
+		var projectFound bool
+
+		if collabReq.ProjectID != nil {
+			if err := tx.Where("id = ?", *collabReq.ProjectID).First(&proj).Error; err == nil {
+				projectFound = true
+			}
+		} else if collabReq.DiscussionID != nil {
+			if err := tx.Where("source_discussion_id = ?", *collabReq.DiscussionID).First(&proj).Error; err == nil {
+				projectFound = true
+			}
+		}
+
+		if projectFound {
+			proj.Status = "Mitra Terkonfirmasi"
+			if err := tx.Save(&proj).Error; err != nil {
+				return err
+			}
+		} else {
+			// Create new project based on discussion
+			var disc model.Discussion
+			if collabReq.DiscussionID != nil {
+				_ = tx.Where("id = ?", *collabReq.DiscussionID).First(&disc)
+			}
+			title := "Collaboration Project"
+			desc := collabReq.ProposedContribution
+			category := "Teknologi"
+			if disc.Title != "" {
+				title = disc.Title
+				desc = disc.Description
+				category = disc.Category
+			}
+
+			proj = model.Project{
+				OwnerID:            initiatorID,
+				Title:              title,
+				Description:        desc,
+				Category:           category,
+				Needs:              "Praktisi",
+				Status:             "Mitra Terkonfirmasi",
+				Progress:           0,
+				SourceDiscussionID: collabReq.DiscussionID,
+			}
+			if err := tx.Create(&proj).Error; err != nil {
+				return err
+			}
+		}
+
+		// Link project ID to collaboration request if not set
+		if collabReq.ProjectID == nil {
+			collabReq.ProjectID = &proj.ID
+			tx.Model(&model.CollaborationRequest{}).Where("id = ?", collabReq.ID).Update("project_id", proj.ID)
+		}
+		targetProject = proj
+
+		// Add project members
+		// Initiator as leader/owner
+		var memberInitiator model.ProjectMember
+		if err := tx.Where("project_id = ? AND user_id = ?", proj.ID, initiatorID).First(&memberInitiator).Error; err != nil {
+			tx.Create(&model.ProjectMember{
+				ProjectID: proj.ID,
+				UserID:    initiatorID,
+				Role:      "Inisiator",
+				Status:    "active",
+			})
+		}
+		// Applicant as confirmed partner
+		var memberApplicant model.ProjectMember
+		if err := tx.Where("project_id = ? AND user_id = ?", proj.ID, collabReq.ApplicantID).First(&memberApplicant).Error; err != nil {
+			tx.Create(&model.ProjectMember{
+				ProjectID: proj.ID,
+				UserID:    collabReq.ApplicantID,
+				Role:      "Mitra Kolaborasi",
+				Status:    "active",
+			})
+		}
+
+		// 4. Find or Create Group Chat for Project / Topic
+		var groupChat model.GroupChat
+		var groupChatFound bool
+
+		if collabReq.DiscussionID != nil {
+			if err := tx.Where("topic_id = ?", *collabReq.DiscussionID).First(&groupChat).Error; err == nil {
+				groupChatFound = true
+			}
+		}
+		if !groupChatFound && proj.ID != uuid.Nil {
+			if err := tx.Where("project_id = ?", proj.ID).First(&groupChat).Error; err == nil {
+				groupChatFound = true
+			}
+		}
+
+		now := time.Now()
+		welcomeMsg := "Welcome to the Project Collaboration Group. Confirmed partners can discuss here."
+
+		if !groupChatFound {
+			groupChat = model.GroupChat{
+				TopicID:         collabReq.DiscussionID,
+				ProjectID:       &proj.ID,
+				Title:           proj.Title,
+				Badge:           "Grup Kolaborasi",
+				LastMessage:     &welcomeMsg,
+				LastMessageTime: &now,
+			}
+			if err := tx.Create(&groupChat).Error; err != nil {
+				return err
+			}
+		} else {
+			groupChat.LastMessage = &welcomeMsg
+			groupChat.LastMessageTime = &now
+			tx.Save(&groupChat)
+		}
+		targetGroupChat = groupChat
+
+		// Add Group Chat Members
+		var gmInitiator model.GroupChatMember
+		if err := tx.Where("group_chat_id = ? AND user_id = ?", groupChat.ID, initiatorID).First(&gmInitiator).Error; err != nil {
+			tx.Create(&model.GroupChatMember{
+				GroupChatID: groupChat.ID,
+				UserID:      initiatorID,
+				Role:        "Inisiator / Ketua",
+			})
+		}
+
+		var gmApplicant model.GroupChatMember
+		if err := tx.Where("group_chat_id = ? AND user_id = ?", groupChat.ID, collabReq.ApplicantID).First(&gmApplicant).Error; err != nil {
+			tx.Create(&model.GroupChatMember{
+				GroupChatID: groupChat.ID,
+				UserID:      collabReq.ApplicantID,
+				Role:        "Mitra Kolaborasi",
+			})
+		}
+
+		// Add initial welcome system message in group_messages
+		sysMessage := model.GroupMessage{
+			GroupChatID:     groupChat.ID,
+			SenderID:        nil,
+			IsSystemMessage: true,
+			Content:         welcomeMsg,
+		}
+		if err := tx.Create(&sysMessage).Error; err != nil {
+			return err
+		}
+
+		// 5. Send Notification to Applicant
+		notif := model.Notification{
+			UserID:       collabReq.ApplicantID,
+			Type:         "collaboration",
+			ActorID:      &initiatorID,
+			ResourceType: "project",
+			ResourceID:   &proj.ID,
+			Payload:      `{"title":"Collaboration Request Approved","message":"Your collaboration request has been approved by the initiator."}`,
+		}
+		if err := tx.Create(&notif).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return &collabReq, &targetProject, &targetGroupChat, nil
+}
+
+func (r *pgProjectRepository) RejectCollabRequest(requestID, initiatorID uuid.UUID, reason string) (*model.CollaborationRequest, error) {
+	var collabReq model.CollaborationRequest
+	if err := r.db.Preload("Applicant").Preload("Discussion").Preload("Project").Where("id = ?", requestID).First(&collabReq).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("collaboration request not found")
+		}
+		return nil, err
+	}
+
+	if collabReq.Status != "PENDING" {
+		return nil, errors.New("collaboration request has already been processed")
+	}
+
+	// Verify initiator authorization
+	var isAuthorized bool
+	if collabReq.DiscussionID != nil {
+		var disc model.Discussion
+		if err := r.db.Where("id = ?", *collabReq.DiscussionID).First(&disc).Error; err == nil {
+			if disc.UserID == initiatorID {
+				isAuthorized = true
+			}
+		}
+	}
+	if !isAuthorized && collabReq.ProjectID != nil {
+		var proj model.Project
+		if err := r.db.Where("id = ?", *collabReq.ProjectID).First(&proj).Error; err == nil {
+			if proj.OwnerID == initiatorID {
+				isAuthorized = true
+			}
+		}
+	}
+
+	if !isAuthorized {
+		return nil, errors.New("only project/topic initiator can reject collaboration requests")
+	}
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		collabReq.Status = "REJECTED"
+		collabReq.RejectionReason = &reason
+		if err := tx.Save(&collabReq).Error; err != nil {
+			return err
+		}
+
+		// Insert notification to applicant
+		notif := model.Notification{
+			UserID:       collabReq.ApplicantID,
+			Type:         "collaboration",
+			ActorID:      &initiatorID,
+			ResourceType: "collaboration_request",
+			ResourceID:   &collabReq.ID,
+			Payload:      `{"title":"Collaboration Request Rejected","message":"Your collaboration request was not approved."}`,
+		}
+		return tx.Create(&notif).Error
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &collabReq, nil
 }

@@ -297,3 +297,116 @@ func (h *ProjectHandler) UpdateMilestone(c *gin.Context) {
 
 	utils.JSONResponse(c, http.StatusOK, "Milestone updated successfully", nil, nil)
 }
+
+func (h *ProjectHandler) SubmitCollabRequest(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	var req dto.SubmitCollaborationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, err)
+		return
+	}
+
+	res, err := h.projService.SubmitCollabRequest(userID, req)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "discussion topic not found" || err.Error() == "project not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "you already have a pending collaboration request for this topic/project" {
+			statusCode = http.StatusConflict
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusCreated, "Collaboration request submitted successfully", res, nil)
+}
+
+func (h *ProjectHandler) ListCollabRequests(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	requests, err := h.projService.ListCollabRequests(userID)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Collaboration requests retrieved successfully", requests, nil)
+}
+
+func (h *ProjectHandler) ApproveCollabRequest(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	reqIDStr := c.Param("id")
+	requestID, err := uuid.Parse(reqIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid collaboration request ID format")
+		return
+	}
+
+	res, err := h.projService.ApproveCollabRequest(requestID, userID)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "collaboration request not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "only project/topic initiator can approve collaboration requests" {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Collaboration request approved successfully", res, nil)
+}
+
+func (h *ProjectHandler) RejectCollabRequest(c *gin.Context) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	userID := userIDInterface.(uuid.UUID)
+
+	reqIDStr := c.Param("id")
+	requestID, err := uuid.Parse(reqIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid collaboration request ID format")
+		return
+	}
+
+	var req dto.RejectCollaborationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, err)
+		return
+	}
+
+	res, err := h.projService.RejectCollabRequest(requestID, userID, req)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "collaboration request not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "only project/topic initiator can reject collaboration requests" {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Collaboration request rejected successfully", res, nil)
+}
+
