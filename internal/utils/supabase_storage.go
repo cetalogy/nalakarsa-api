@@ -26,7 +26,8 @@ type supabaseDeleteResponse struct {
 }
 
 type supabaseDeleteRequest struct {
-	Paths []string `json:"paths"`
+	Prefixes []string `json:"prefixes"`
+	Paths    []string `json:"paths,omitempty"`
 }
 
 func UploadAvatarToSupabase(userID uuid.UUID, fileHeader *multipart.FileHeader, cfg *config.Config) (string, error) {
@@ -44,7 +45,7 @@ func UploadAvatarToSupabase(userID uuid.UUID, fileHeader *multipart.FileHeader, 
 	if ext == ".jpeg" {
 		ext = ".jpg"
 	}
-	objectPath := fmt.Sprintf("avatars/%s%s", userID.String(), ext)
+	objectPath := fmt.Sprintf("%s%s", userID.String(), ext)
 
 	baseURL := strings.TrimRight(cfg.SupabaseURL, "/")
 	uploadURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", baseURL, cfg.SupabaseStorageBucket, objectPath)
@@ -71,6 +72,7 @@ func UploadAvatarToSupabase(userID uuid.UUID, fileHeader *multipart.FileHeader, 
 	req.Header.Set("apikey", cfg.SupabaseServiceRoleKey)
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("x-upsert", "true")
+	req.Header.Set("cache-control", "no-cache")
 	req.ContentLength = fileHeader.Size
 
 	client := &http.Client{Timeout: 20 * time.Second}
@@ -110,22 +112,21 @@ func CleanupOtherAvatarVariants(userID uuid.UUID, keepURL string, cfg *config.Co
 		return err
 	}
 
-	candidates := []string{
-		fmt.Sprintf("avatars/%s.jpg", userID.String()),
-		fmt.Sprintf("avatars/%s.jpeg", userID.String()),
-		fmt.Sprintf("avatars/%s.png", userID.String()),
-	}
-	paths := make([]string, 0, len(candidates))
-	for _, candidate := range candidates {
-		if candidate != keepPath {
-			paths = append(paths, candidate)
+	currentExt := strings.ToLower(filepath.Ext(keepPath))
+	var paths []string
+	for _, ext := range []string{".jpg", ".jpeg", ".png"} {
+		if ext != currentExt {
+			paths = append(paths, fmt.Sprintf("%s%s", userID.String(), ext))
 		}
 	}
 	if len(paths) == 0 {
 		return nil
 	}
 
-	payload, err := json.Marshal(supabaseDeleteRequest{Paths: paths})
+	payload, err := json.Marshal(supabaseDeleteRequest{
+		Prefixes: paths,
+		Paths:    paths,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to encode delete request: %w", err)
 	}

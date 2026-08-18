@@ -50,6 +50,15 @@ func (m *mockUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 	return nil, nil
 }
 
+func (m *mockUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, error) {
+	for _, u := range m.users {
+		if u.Email == identifier || u.FullName == identifier {
+			return u, nil
+		}
+	}
+	return nil, nil
+}
+
 func (m *mockUserRepository) UpdateProfile(u *model.User) error {
 	for _, existing := range m.users {
 		if existing.ID == u.ID {

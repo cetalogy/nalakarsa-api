@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
@@ -27,6 +28,9 @@ type ConversationService interface {
 	ListGroupChats(userID uuid.UUID) ([]dto.GroupChatResponse, error)
 	ListGroupMessages(userID uuid.UUID, groupChatID uuid.UUID, page, limit int) ([]dto.GroupMessageResponse, int64, error)
 	SendGroupMessage(userID uuid.UUID, groupChatID uuid.UUID, req dto.SendGroupMessageRequest) (*dto.GroupMessageResponse, error)
+
+	// Delete message (Direct & Group)
+	DeleteMessage(userID uuid.UUID, messageID uuid.UUID) error
 }
 
 type conversationService struct {
@@ -229,9 +233,9 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 		Time:   msg.CreatedAt,
 	}
 
-	// Trigger Supabase WebSocket broadcast asynchronously
-	topic := fmt.Sprintf("conversation-%s", conversationID.String())
-	utils.BroadcastToSupabase(topic, "new_message", response, s.cfg)
+	// Trigger Firebase Realtime Database push asynchronously
+	firebasePath := fmt.Sprintf("chats/direct/%s/messages", conversationID.String())
+	utils.PushToFirebaseRealtime(firebasePath, response, s.cfg)
 
 	return response, nil
 }
@@ -332,7 +336,7 @@ func (s *conversationService) ListGroupMessages(userID uuid.UUID, groupChatID uu
 		return nil, 0, errors.New("group chat not found")
 	}
 
-	isMember, err := s.convRepo.IsGroupChatMember(groupChatID, userID)
+	isMember, err := s.convRepo.IsGroupChatMember(gc.ID, userID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -340,7 +344,7 @@ func (s *conversationService) ListGroupMessages(userID uuid.UUID, groupChatID uu
 		return nil, 0, errors.New("unauthorized to view messages in this group chat")
 	}
 
-	messages, total, err := s.convRepo.ListGroupMessages(groupChatID, page, limit)
+	messages, total, err := s.convRepo.ListGroupMessages(gc.ID, page, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -353,7 +357,7 @@ func (s *conversationService) ListGroupMessages(userID uuid.UUID, groupChatID uu
 			senderRole = m.Sender.Role
 			senderAvatar = m.Sender.AvatarURL
 		} else if m.IsSystemMessage {
-			senderName = "Sistem Nalakarsa"
+			senderName = "Nalakarsa"
 			senderRole = "System"
 		}
 
@@ -390,7 +394,7 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 		return nil, errors.New("group chat not found")
 	}
 
-	isMember, err := s.convRepo.IsGroupChatMember(groupChatID, userID)
+	isMember, err := s.convRepo.IsGroupChatMember(gc.ID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +408,7 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 	}
 
 	msg := model.GroupMessage{
-		GroupChatID:     groupChatID,
+		GroupChatID:     gc.ID,
 		SenderID:        &userID,
 		IsSystemMessage: false,
 		Content:         content,
@@ -414,7 +418,7 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 		return nil, err
 	}
 
-	_ = s.convRepo.UpdateGroupChatLastMessage(groupChatID, content)
+	_ = s.convRepo.UpdateGroupChatLastMessage(gc.ID, content)
 
 	response := &dto.GroupMessageResponse{
 		ID:              msg.ID,
@@ -428,9 +432,57 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 		CreatedAt:       msg.CreatedAt,
 	}
 
-	// Trigger Supabase WebSocket broadcast asynchronously
-	topic := fmt.Sprintf("group-chat-%s", groupChatID.String())
-	utils.BroadcastToSupabase(topic, "new_message", response, s.cfg)
+	// Trigger Firebase Realtime Database push asynchronously
+	firebasePath := fmt.Sprintf("chats/groups/%s/messages", gc.ID.String())
+	utils.PushToFirebaseRealtime(firebasePath, response, s.cfg)
 
 	return response, nil
+}
+
+func (s *conversationService) DeleteMessage(userID uuid.UUID, messageID uuid.UUID) error {
+	// 1. Try to find message in Direct Messages
+	msg, err := s.convRepo.GetMessageByID(messageID)
+	if err == nil && msg != nil {
+		if msg.SenderID != userID {
+			return errors.New("unauthorized: you can only delete your own messages")
+		}
+
+		if err := s.convRepo.DeleteMessage(msg.ID); err != nil {
+			return err
+		}
+
+		// Broadcast delete event to Firebase Realtime Database
+		firebasePath := fmt.Sprintf("chats/direct/%s/messages", msg.ConversationID.String())
+		utils.PushToFirebaseRealtime(firebasePath, map[string]interface{}{
+			"event":      "message_deleted",
+			"message_id": msg.ID.String(),
+			"deleted_at": time.Now().UTC().Format(time.RFC3339),
+		}, s.cfg)
+
+		return nil
+	}
+
+	// 2. Try to find message in Group Messages
+	gmsg, err := s.convRepo.GetGroupMessageByID(messageID)
+	if err == nil && gmsg != nil {
+		if gmsg.SenderID == nil || *gmsg.SenderID != userID {
+			return errors.New("unauthorized: you can only delete your own messages")
+		}
+
+		if err := s.convRepo.DeleteGroupMessage(gmsg.ID); err != nil {
+			return err
+		}
+
+		// Broadcast delete event to Firebase Realtime Database
+		firebasePath := fmt.Sprintf("chats/groups/%s/messages", gmsg.GroupChatID.String())
+		utils.PushToFirebaseRealtime(firebasePath, map[string]interface{}{
+			"event":      "message_deleted",
+			"message_id": gmsg.ID.String(),
+			"deleted_at": time.Now().UTC().Format(time.RFC3339),
+		}, s.cfg)
+
+		return nil
+	}
+
+	return errors.New("message not found")
 }

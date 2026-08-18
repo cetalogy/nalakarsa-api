@@ -343,11 +343,6 @@ func (s *discussionService) MarkCollaboration(userID uuid.UUID, id uuid.UUID) er
 		return errors.New("discussion not found")
 	}
 
-	// Auth check: only owner can mark as collaboration
-	if disc.UserID != userID {
-		return errors.New("unauthorized to update this discussion")
-	}
-
 	disc.IsInCollaboration = true
 	return s.discRepo.Update(disc)
 }

@@ -1,11 +1,14 @@
 package userservice
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	connectionrepository "nalakarsa/internal/repository/connection"
+	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
 
@@ -15,6 +18,7 @@ import (
 type UserService interface {
 	GetProfile(userID uuid.UUID) (*dto.UserResponse, error)
 	GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsResponse, error)
+	ResolveUser(identifier string) (*model.User, error)
 	UpdateProfile(userID uuid.UUID, req dto.UpdateProfileRequest) error
 	UpdateAvatar(userID uuid.UUID, avatarURL string) error
 	ListUsers(search, role string, page, limit int) ([]dto.UserResponse, int64, error)
@@ -26,21 +30,28 @@ type UserService interface {
 }
 
 type userService struct {
-	userRepo userrepository.UserRepository
-	connRepo connectionrepository.ConnectionRepository
-	projRepo projectrepository.ProjectRepository
+	userRepo  userrepository.UserRepository
+	connRepo  connectionrepository.ConnectionRepository
+	projRepo  projectrepository.ProjectRepository
+	notifRepo notificationrepository.NotificationRepository
 }
 
 func NewUserService(
 	userRepo userrepository.UserRepository,
 	connRepo connectionrepository.ConnectionRepository,
 	projRepo projectrepository.ProjectRepository,
+	notifRepo notificationrepository.NotificationRepository,
 ) UserService {
 	return &userService{
-		userRepo: userRepo,
-		connRepo: connRepo,
-		projRepo: projRepo,
+		userRepo:  userRepo,
+		connRepo:  connRepo,
+		projRepo:  projRepo,
+		notifRepo: notifRepo,
 	}
+}
+
+func (s *userService) ResolveUser(identifier string) (*model.User, error) {
+	return s.userRepo.GetByIDOrIdentifier(identifier)
 }
 
 func (s *userService) GetProfile(userID uuid.UUID) (*dto.UserResponse, error) {
@@ -84,26 +95,101 @@ func (s *userService) GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsR
 }
 
 func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileRequest) error {
-	fullName := req.FullName
+	existingUser, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return err
+	}
+	if existingUser == nil {
+		return errors.New("user not found")
+	}
+
+	firstName := req.GetFirstName()
+	if firstName == "" {
+		firstName = existingUser.FirstName
+	}
+
+	middleName := req.GetMiddleName()
+	var middleNamePtr *string
+	if middleName != "" {
+		middleNamePtr = &middleName
+	} else {
+		middleNamePtr = existingUser.MiddleName
+	}
+
+	lastName := req.GetLastName()
+	if lastName == "" {
+		lastName = existingUser.LastName
+	}
+
+	fullName := req.GetFullName()
 	if fullName == "" {
-		fullName = req.FirstName + " " + req.LastName
+		if middleNamePtr != nil && *middleNamePtr != "" {
+			fullName = fmt.Sprintf("%s %s %s", firstName, *middleNamePtr, lastName)
+		} else {
+			fullName = fmt.Sprintf("%s %s", firstName, lastName)
+		}
+	}
+
+	prefixTitle := req.GetPrefixTitle()
+	if prefixTitle == "" {
+		prefixTitle = existingUser.PrefixTitle
+	}
+
+	suffixTitle := req.GetSuffixTitle()
+	if suffixTitle == "" {
+		suffixTitle = existingUser.SuffixTitle
+	}
+
+	affiliation := req.Affiliation
+	if affiliation == "" {
+		affiliation = existingUser.Affiliation
+	}
+
+	location := req.Location
+	if location == "" {
+		location = existingUser.Location
+	}
+
+	expertise := req.Expertise
+	if expertise == "" {
+		expertise = existingUser.Expertise
+	}
+
+	industry := req.Industry
+	if industry == "" {
+		industry = existingUser.Industry
+	}
+
+	bio := req.Bio
+	if bio == "" {
+		bio = existingUser.Bio
+	}
+
+	mission := req.Mission
+	if mission == "" {
+		mission = existingUser.Mission
+	}
+
+	avatarURL := req.AvatarURL
+	if avatarURL == "" {
+		avatarURL = existingUser.AvatarURL
 	}
 
 	u := &model.User{
 		ID:          userID,
-		FirstName:   req.FirstName,
-		MiddleName:  &req.MiddleName,
-		LastName:    req.LastName,
+		FirstName:   firstName,
+		MiddleName:  middleNamePtr,
+		LastName:    lastName,
 		FullName:    fullName,
-		PrefixTitle: req.PrefixTitle,
-		SuffixTitle: req.SuffixTitle,
-		Affiliation: req.Affiliation,
-		Location:    req.Location,
-		Expertise:   req.Expertise,
-		Industry:    req.Industry,
-		Bio:         req.Bio,
-		Mission:     req.Mission,
-		AvatarURL:   req.AvatarURL,
+		PrefixTitle: prefixTitle,
+		SuffixTitle: suffixTitle,
+		Affiliation: affiliation,
+		Location:    location,
+		Expertise:   expertise,
+		Industry:    industry,
+		Bio:         bio,
+		Mission:     mission,
+		AvatarURL:   avatarURL,
 	}
 
 	return s.userRepo.UpdateProfile(u)
@@ -197,6 +283,28 @@ func (s *userService) ToggleFollow(currentUserID, targetUserID uuid.UUID) (*dto.
 	message := "User followed successfully"
 	if !isFollowing {
 		message = "User unfollowed successfully"
+	} else if s.notifRepo != nil {
+		// Send in-app notification to the followed user
+		follower, _ := s.userRepo.GetByID(currentUserID)
+		followerName := "Someone"
+		if follower != nil && follower.FullName != "" {
+			followerName = follower.FullName
+		}
+
+		notifPayload, _ := json.Marshal(map[string]interface{}{
+			"title":   "New Follower",
+			"message": fmt.Sprintf("%s is now following you", followerName),
+		})
+
+		notif := model.Notification{
+			UserID:       targetUserID, // Sent to the user being followed
+			Type:         "follow",
+			ActorID:      &currentUserID, // Follower
+			ResourceType: "user",
+			ResourceID:   &currentUserID,
+			Payload:      string(notifPayload),
+		}
+		_ = s.notifRepo.Create(&notif)
 	}
 
 	return &dto.ToggleFollowResponse{

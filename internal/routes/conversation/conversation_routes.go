@@ -23,4 +23,9 @@ func RegisterRoutes(protected *gin.RouterGroup, h *conversationhandler.Conversat
 	protected.GET("/chats/groups", h.ListGroupChats)
 	protected.GET("/chats/groups/:groupId/messages", h.ListGroupMessages)
 	protected.POST("/chats/groups/:groupId/messages", h.SendGroupMessage)
+
+	// Delete Message (Direct & Group)
+	protected.DELETE("/chats/messages/:id", h.DeleteMessage)
+	protected.DELETE("/conversations/messages/:id", h.DeleteMessage)
+	protected.DELETE("/chat/messages/:id", h.DeleteMessage)
 }

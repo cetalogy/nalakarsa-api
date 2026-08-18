@@ -3,6 +3,7 @@ package conversationhandler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"nalakarsa/internal/dto"
 	conversationservice "nalakarsa/internal/service/conversation"
@@ -165,9 +166,13 @@ func (h *ConversationHandler) ListGroupMessages(c *gin.Context) {
 		groupIDStr = c.Param("id")
 	}
 
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_topic_")
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_project_")
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_")
+
 	groupID, err := uuid.Parse(groupIDStr)
 	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format")
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format: expected a valid UUID")
 		return
 	}
 
@@ -205,9 +210,13 @@ func (h *ConversationHandler) SendGroupMessage(c *gin.Context) {
 		groupIDStr = c.Param("id")
 	}
 
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_topic_")
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_project_")
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_")
+
 	groupID, err := uuid.Parse(groupIDStr)
 	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format")
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format: expected a valid UUID")
 		return
 	}
 
@@ -230,5 +239,32 @@ func (h *ConversationHandler) SendGroupMessage(c *gin.Context) {
 	}
 
 	utils.JSONResponse(c, http.StatusCreated, "Group message sent successfully", msg, nil)
+}
+
+func (h *ConversationHandler) DeleteMessage(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+	msgIDStr := c.Param("id")
+	if msgIDStr == "" {
+		msgIDStr = c.Param("messageId")
+	}
+
+	msgID, err := uuid.Parse(msgIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid message ID format: expected a valid UUID")
+		return
+	}
+
+	if err := h.convService.DeleteMessage(userID, msgID); err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "message not found" {
+			statusCode = http.StatusNotFound
+		} else if strings.HasPrefix(err.Error(), "unauthorized") {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+
+	utils.JSONResponse(c, http.StatusOK, "Message deleted successfully", nil, nil)
 }
 
