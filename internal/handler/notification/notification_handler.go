@@ -41,7 +41,11 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
-	notifID, err := uuid.Parse(c.Param("id"))
+	notifIDStr := c.Param("id")
+	if len(notifIDStr) >= 36 {
+		notifIDStr = notifIDStr[len(notifIDStr)-36:]
+	}
+	notifID, err := uuid.Parse(notifIDStr)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid notification ID format")
 		return

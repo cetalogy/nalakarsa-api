@@ -9,7 +9,7 @@ import (
 // --- Conversation DTOs ---
 
 type CreateDirectConversationRequest struct {
-	TargetUserID uuid.UUID `json:"target_user_id" binding:"required"`
+	TargetUserID string `json:"target_user_id" binding:"required"`
 }
 
 type StartChatRequest struct {
