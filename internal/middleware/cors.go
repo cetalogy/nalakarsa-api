@@ -15,7 +15,11 @@ func CORSMiddleware(cfg *config.Config) gin.HandlerFunc {
 		allowedOrigin := ""
 
 		if cfg.CORSAllowedOrigins == "*" {
-			allowedOrigin = "*"
+			if origin != "" {
+				allowedOrigin = origin
+			} else {
+				allowedOrigin = "*"
+			}
 		} else {
 			allowed := strings.Split(cfg.CORSAllowedOrigins, ",")
 			for _, o := range allowed {
@@ -26,7 +30,7 @@ func CORSMiddleware(cfg *config.Config) gin.HandlerFunc {
 			}
 
 			if allowedOrigin == "" && strings.HasSuffix(origin, ".vercel.app") {
-				allowedOrigin = "*.vercel.app"
+				allowedOrigin = origin
 			}
 		}
 
