@@ -45,12 +45,18 @@ func NewConversationService(convRepo conversationrepository.ConversationReposito
 }
 
 func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.CreateDirectConversationRequest) (*dto.ConversationResponse, error) {
-	if userID == req.TargetUserID {
+	cleanID := strings.TrimPrefix(strings.TrimSpace(req.TargetUserID), "user_")
+	targetUUID, err := uuid.Parse(cleanID)
+	if err != nil {
+		return nil, errors.New("invalid target user id format")
+	}
+
+	if userID == targetUUID {
 		return nil, errors.New("cannot create conversation with yourself")
 	}
 
 	// Check target user exists
-	target, err := s.userRepo.GetByID(req.TargetUserID)
+	target, err := s.userRepo.GetByID(targetUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +65,7 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	}
 
 	// Check if direct conversation already exists
-	existing, err := s.convRepo.GetDirectByPair(userID, req.TargetUserID)
+	existing, err := s.convRepo.GetDirectByPair(userID, targetUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +85,7 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: userID}); err != nil {
 		return nil, err
 	}
-	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: req.TargetUserID}); err != nil {
+	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: targetUUID}); err != nil {
 		return nil, err
 	}
 
@@ -100,7 +106,7 @@ func (s *conversationService) StartChat(userID uuid.UUID, req dto.StartChatReque
 
 	// Resolve to explicit direct-conversation target and reuse existing method.
 	return s.GetOrCreateDirect(userID, dto.CreateDirectConversationRequest{
-		TargetUserID: targetUserID,
+		TargetUserID: targetUserID.String(),
 	})
 }
 
