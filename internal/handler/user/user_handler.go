@@ -8,6 +8,7 @@ import (
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
+	usercommon "nalakarsa/internal/common/user"
 	userservice "nalakarsa/internal/service/user"
 	"nalakarsa/internal/utils"
 
@@ -249,8 +250,7 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	log.Printf("[AVATAR UPLOAD] User %s uploading file '%s' (%d bytes, Content-Type: %s)", userID, file.Filename, file.Size, file.Header.Get("Content-Type"))
 
 	// Validate file size (max 5MB)
-	const maxFileSize = 5 * 1024 * 1024 // 5MB
-	if file.Size > maxFileSize {
+	if file.Size > usercommon.MaxAvatarSize {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File size exceeds 5MB limit")
 		return
 	}

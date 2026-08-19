@@ -3,6 +3,8 @@ package seed
 import (
 	"log"
 
+	projectcommon "nalakarsa/internal/common/project"
+	usercommon "nalakarsa/internal/common/user"
 	"nalakarsa/internal/model"
 	"nalakarsa/internal/utils"
 
@@ -34,9 +36,9 @@ func SeedData(db *gorm.DB) error {
 	akademisiUser := &model.User{
 		Email:        "dosen@nalakarsa.id",
 		PasswordHash: hashedPassword,
-		Role:         "akademisi",
-		SystemRole:   "user",
-		Status:       "active",
+		Role:         usercommon.RoleAkademisi,
+		SystemRole:   usercommon.SystemRoleUser,
+		Status:       usercommon.StatusActive,
 		FirstName:    "Budi",
 		LastName:     "Santoso",
 		FullName:     "Dr. Ir. Budi Santoso",
@@ -53,9 +55,9 @@ func SeedData(db *gorm.DB) error {
 	praktisiUser := &model.User{
 		Email:        "pengusaha@nalakarsa.id",
 		PasswordHash: hashedPassword,
-		Role:         "praktisi",
-		SystemRole:   "user",
-		Status:       "active",
+		Role:         usercommon.RolePraktisi,
+		SystemRole:   usercommon.SystemRoleUser,
+		Status:       usercommon.StatusActive,
 		FirstName:    "Setyo",
 		LastName:     "Nugroho",
 		FullName:     "Setyo Nugroho",
@@ -72,9 +74,9 @@ func SeedData(db *gorm.DB) error {
 	profesionalUser := &model.User{
 		Email:        "engineer@nalakarsa.id",
 		PasswordHash: hashedPassword,
-		Role:         "profesional",
-		SystemRole:   "user",
-		Status:       "active",
+		Role:         usercommon.RoleProfesional,
+		SystemRole:   usercommon.SystemRoleUser,
+		Status:       usercommon.StatusActive,
 		FirstName:    "Hendra",
 		LastName:     "Wijaya",
 		FullName:     "Hendra Wijaya",
@@ -150,8 +152,8 @@ func SeedData(db *gorm.DB) error {
 		Title:         "Pengembangan Lapangan Sistem IoT Monitoring Tanah Pertanian",
 		Description:   "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
 		Category:      "Research",
-		Needs:         "praktisi",
-		Status:        "open",
+		Needs:         usercommon.RolePraktisi,
+		Status:        projectcommon.ProjectStatusOpen,
 		FundingStatus: "Self-funded",
 		Location:      "Bogor",
 	}
@@ -165,7 +167,7 @@ func SeedData(db *gorm.DB) error {
 		ProjectID:   proj.ID,
 		ApplicantID: praktisiUser.ID,
 		Message:     "Halo Pak Budi, saya Hendra dari PT Tani Maju Digital. Kami memiliki perkebunan teh seluas 3 hektar di daerah Bogor dan sangat tertarik untuk dijadikan lahan riset implementasi alat ini.",
-		Status:      "pending",
+		Status:      projectcommon.ApplicationStatusPending,
 	}
 
 	if err := db.Create(app).Error; err != nil {

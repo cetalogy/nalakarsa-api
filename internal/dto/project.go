@@ -63,11 +63,11 @@ type ApplyProjectRequest struct {
 }
 
 type ApplicantResponse struct {
-	ID       uuid.UUID `json:"id"`
-	FullName string    `json:"fullName"`
-	Role     string    `json:"role"`
-	Afiliasi string    `json:"afiliasi"`
-	Lokasi   string    `json:"lokasi"`
+	ID        uuid.UUID `json:"id"`
+	FullName  string    `json:"fullName"`
+	Role      string    `json:"role"`
+	Afiliasi  string    `json:"afiliasi"`
+	Lokasi    string    `json:"lokasi"`
 	AvatarURL string    `json:"avatar_url"`
 }
 
@@ -117,14 +117,14 @@ type ApproveCollaborationResponse struct {
 	GroupChatID uuid.UUID  `json:"groupChatId"`
 }
 
-type RejectCollaborationRequest struct {
-	Reason string `json:"reason" binding:"required,min=1"`
-}
+// type RejectCollaborationRequest struct {
+// 	Reason string `json:"reason" binding:"required,min=1"`
+// }
 
 type RejectCollaborationResponse struct {
 	RequestID uuid.UUID `json:"requestId"`
 	Status    string    `json:"status"`
-	Reason    string    `json:"reason,omitempty"`
+	// Reason    string    `json:"reason,omitempty"`
 }
 
 // --- Project Member ---

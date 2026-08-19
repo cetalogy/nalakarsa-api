@@ -389,13 +389,13 @@ func (h *ProjectHandler) RejectCollabRequest(c *gin.Context) {
 		return
 	}
 
-	var req dto.RejectCollaborationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ValidationErrorResponse(c, err)
-		return
-	}
+	// var req dto.RejectCollaborationRequest
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	utils.ValidationErrorResponse(c, err)
+	// 	return
+	// }
 
-	res, err := h.projService.RejectCollabRequest(requestID, userID, req)
+	res, err := h.projService.RejectCollabRequest(requestID, userID)
 	if err != nil {
 		statusCode := http.StatusBadRequest
 		if err.Error() == "collaboration request not found" {
@@ -409,4 +409,3 @@ func (h *ProjectHandler) RejectCollabRequest(c *gin.Context) {
 
 	utils.JSONResponse(c, http.StatusOK, "Collaboration request rejected successfully", res, nil)
 }
-

@@ -3,6 +3,7 @@ package connectionservice
 import (
 	"errors"
 
+	connectioncommon "nalakarsa/internal/common/connection"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	connectionrepository "nalakarsa/internal/repository/connection"
@@ -112,10 +113,10 @@ func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnection
 		return uuid.Nil, err
 	}
 	if existing != nil {
-		if existing.Status == "accepted" {
+		if existing.Status == connectioncommon.ConnectionStatusAccepted {
 			return uuid.Nil, errors.New("already connected with this user")
 		}
-		if existing.Status == "pending" {
+		if existing.Status == connectioncommon.ConnectionStatusPending {
 			return uuid.Nil, errors.New("connection request already exists")
 		}
 	}
@@ -123,7 +124,7 @@ func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnection
 	conn := &model.Connection{
 		RequesterID: userID,
 		AddresseeID: req.TargetUserID,
-		Status:      "pending",
+		Status:      connectioncommon.ConnectionStatusPending,
 	}
 
 	if err := s.connRepo.Create(conn); err != nil {
@@ -147,11 +148,11 @@ func (s *connectionService) AcceptRequest(userID uuid.UUID, requestID uuid.UUID)
 		return errors.New("unauthorized to accept this request")
 	}
 
-	if conn.Status != "pending" {
+	if conn.Status != connectioncommon.ConnectionStatusPending {
 		return errors.New("connection request is no longer pending")
 	}
 
-	conn.Status = "accepted"
+	conn.Status = connectioncommon.ConnectionStatusAccepted
 	return s.connRepo.Update(conn)
 }
 
@@ -169,11 +170,11 @@ func (s *connectionService) RejectRequest(userID uuid.UUID, requestID uuid.UUID)
 		return errors.New("unauthorized to reject this request")
 	}
 
-	if conn.Status != "pending" {
+	if conn.Status != connectioncommon.ConnectionStatusPending {
 		return errors.New("connection request is no longer pending")
 	}
 
-	conn.Status = "rejected"
+	conn.Status = connectioncommon.ConnectionStatusRejected
 	return s.connRepo.Update(conn)
 }
 
@@ -191,7 +192,7 @@ func (s *connectionService) CancelRequest(userID uuid.UUID, requestID uuid.UUID)
 		return errors.New("unauthorized to cancel this request")
 	}
 
-	if conn.Status != "pending" {
+	if conn.Status != connectioncommon.ConnectionStatusPending {
 		return errors.New("connection request is no longer pending")
 	}
 
@@ -203,7 +204,7 @@ func (s *connectionService) RemoveConnection(userID uuid.UUID, targetUserID uuid
 	if err != nil {
 		return err
 	}
-	if conn == nil || conn.Status != "accepted" {
+	if conn == nil || conn.Status != connectioncommon.ConnectionStatusAccepted {
 		return errors.New("connection not found")
 	}
 
