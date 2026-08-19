@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	notificationcommon "nalakarsa/internal/common/notification"
+	projectcommon "nalakarsa/internal/common/project"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	discussionrepository "nalakarsa/internal/repository/discussion"
@@ -34,7 +36,7 @@ type ProjectService interface {
 	SubmitCollabRequest(applicantID uuid.UUID, req dto.SubmitCollaborationRequest) (*dto.CollaborationRequestItemResponse, error)
 	ListCollabRequests(userID uuid.UUID) ([]dto.CollaborationRequestItemResponse, error)
 	ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*dto.ApproveCollaborationResponse, error)
-	RejectCollabRequest(requestID, initiatorID uuid.UUID, req dto.RejectCollaborationRequest) (*dto.RejectCollaborationResponse, error)
+	RejectCollabRequest(requestID, initiatorID uuid.UUID) (*dto.RejectCollaborationResponse, error)
 }
 
 type projectService struct {
@@ -64,7 +66,7 @@ func (s *projectService) Create(userID uuid.UUID, req dto.CreateProjectRequest) 
 		Title:         req.Title,
 		Description:   req.Description,
 		Category:      req.Category,
-		Status:        "draft",
+		Status:        projectcommon.ProjectStatusDraft,
 		Needs:         req.Needs,
 		FundingStatus: req.FundingStatus,
 		Location:      req.Location,
@@ -93,7 +95,7 @@ func (s *projectService) CreateFromDiscussion(userID uuid.UUID, discussionID uui
 		Title:              disc.Title,
 		Description:        disc.Description,
 		Category:           disc.Category,
-		Status:             "draft",
+		Status:             projectcommon.ProjectStatusDraft,
 		Needs:              "Praktisi", // Default or map it somehow
 		FundingStatus:      "Belum Ada",
 		Location:           "Remote",
@@ -221,7 +223,7 @@ func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.Ap
 		return uuid.Nil, errors.New("cannot apply to your own project")
 	}
 
-	if p.Status != "open" {
+	if p.Status != projectcommon.ProjectStatusOpen {
 		return uuid.Nil, errors.New("project is not open for applications")
 	}
 
@@ -229,7 +231,7 @@ func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.Ap
 		ProjectID:   projectID,
 		ApplicantID: userID,
 		Message:     req.Message,
-		Status:      "pending",
+		Status:      projectcommon.ApplicationStatusPending,
 	}
 
 	if err := s.projRepo.CreateApplication(app); err != nil {
@@ -250,9 +252,9 @@ func (s *projectService) Apply(userID uuid.UUID, projectID uuid.UUID, req dto.Ap
 
 	notif := model.Notification{
 		UserID:       p.OwnerID, // Sent to PROJECT OWNER
-		Type:         "collaboration",
+		Type:         notificationcommon.TypeCollaboration,
 		ActorID:      &userID, // Applicant user
-		ResourceType: "project",
+		ResourceType: notificationcommon.ResourceProject,
 		ResourceID:   &p.ID,
 		Payload:      string(notifPayload),
 	}
@@ -328,20 +330,23 @@ func (s *projectService) UpdateApplicationStatus(userID uuid.UUID, projectID uui
 	}
 
 	// If accepted, add as project member
-	if req.Status == "accepted" {
+	if req.Status == projectcommon.ApplicationStatusAccepted {
+		// Add applicant to project members
 		member := &model.ProjectMember{
 			ProjectID: projectID,
 			UserID:    app.ApplicantID,
 			Role:      "member",
-			Status:    "active",
+			Status:    projectcommon.MemberStatusActive,
 			JoinedAt:  time.Now(),
 		}
-		_ = s.projRepo.AddMember(member)
+		if err := s.projRepo.AddMember(member); err != nil {
+			return err
+		}
 	}
 
 	// Send in-app notification to APPLICANT regarding their status update
 	notifTitle := "Project Application Accepted"
-	if req.Status == "rejected" {
+	if req.Status == projectcommon.ApplicationStatusRejected {
 		notifTitle = "Project Application Rejected"
 	}
 	notifPayload, _ := json.Marshal(map[string]interface{}{
@@ -351,9 +356,9 @@ func (s *projectService) UpdateApplicationStatus(userID uuid.UUID, projectID uui
 
 	notif := model.Notification{
 		UserID:       app.ApplicantID, // Sent to APPLICANT
-		Type:         "collaboration",
+		Type:         notificationcommon.TypeCollaboration,
 		ActorID:      &userID, // Project Owner / Initiator
-		ResourceType: "project",
+		ResourceType: notificationcommon.ResourceProject,
 		ResourceID:   &p.ID,
 		Payload:      string(notifPayload),
 	}
@@ -401,7 +406,7 @@ func (s *projectService) CreateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 		ProjectID:  projectID,
 		Title:      req.Title,
 		DueAt:      req.DueAt,
-		Status:     "pending",
+		Status:     projectcommon.MilestoneStatusPending,
 		AssigneeID: req.AssigneeID,
 	}
 
@@ -438,7 +443,7 @@ func (s *projectService) UpdateMilestone(userID uuid.UUID, projectID uuid.UUID, 
 	milestone.Status = req.Status
 	milestone.AssigneeID = req.AssigneeID
 
-	if req.Status == "completed" && milestone.CompletedAt == nil {
+	if req.Status == projectcommon.MilestoneStatusCompleted && milestone.CompletedAt == nil {
 		now := time.Now()
 		milestone.CompletedAt = &now
 	}
@@ -514,7 +519,7 @@ func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.Subm
 		ProjectID:            req.ProjectID,
 		ApplicantID:          applicantID,
 		ProposedContribution: req.ProposedContribution,
-		Status:               "PENDING",
+		Status:               projectcommon.CollabStatusPending,
 	}
 
 	if err := s.projRepo.CreateCollabRequest(&collabReq); err != nil {
@@ -529,9 +534,9 @@ func (s *projectService) SubmitCollabRequest(applicantID uuid.UUID, req dto.Subm
 
 	notif := model.Notification{
 		UserID:       targetOwnerID, // Sent to OWNER / INITIATOR
-		Type:         "collaboration",
+		Type:         notificationcommon.TypeCollaboration,
 		ActorID:      &applicantID, // Applicant user
-		ResourceType: "collaboration_request",
+		ResourceType: notificationcommon.ResourceCollaborationRequest,
 		ResourceID:   &collabReq.ID,
 		Payload:      string(notifPayload),
 	}
@@ -619,9 +624,9 @@ func (s *projectService) ApproveCollabRequest(requestID, initiatorID uuid.UUID) 
 
 		notif := model.Notification{
 			UserID:       req.ApplicantID, // Sent to APPLICANT
-			Type:         "collaboration",
+			Type:         notificationcommon.TypeCollaboration,
 			ActorID:      &initiatorID, // Project Initiator
-			ResourceType: "project",
+			ResourceType: notificationcommon.ResourceProject,
 			ResourceID:   projectID,
 			Payload:      string(notifPayload),
 		}
@@ -636,10 +641,28 @@ func (s *projectService) ApproveCollabRequest(requestID, initiatorID uuid.UUID) 
 	}, nil
 }
 
-func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID, req dto.RejectCollaborationRequest) (*dto.RejectCollaborationResponse, error) {
-	collabReq, err := s.projRepo.RejectCollabRequest(requestID, initiatorID, req.Reason)
+func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID) (*dto.RejectCollaborationResponse, error) {
+	collabReq, err := s.projRepo.RejectCollabRequest(requestID, initiatorID)
 	if err != nil {
-		return nil, err
+		notifPayload, _ := json.Marshal(map[string]interface{}{
+			"title":   "Collaboration Request Rejected",
+			"message": "Your collaboration request was rejected.",
+		})
+
+		notif := model.Notification{
+			UserID:       collabReq.ApplicantID, // Sent to APPLICANT
+			Type:         notificationcommon.TypeCollaboration,
+			ActorID:      &initiatorID, // Project Initiator
+			ResourceType: notificationcommon.ResourceProject,
+			ResourceID:   &requestID, // Using requestID as resourceID for rejection context
+			Payload:      string(notifPayload),
+		}
+		_ = s.notifRepo.Create(&notif)
+
+		return &dto.RejectCollaborationResponse{
+			RequestID: collabReq.ID,
+			Status:    collabReq.Status,
+		}, err
 	}
 
 	reasonStr := ""
@@ -661,9 +684,9 @@ func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID, r
 
 		notif := model.Notification{
 			UserID:       collabReq.ApplicantID, // Sent to APPLICANT
-			Type:         "collaboration",
+			Type:         notificationcommon.TypeCollaboration,
 			ActorID:      &initiatorID, // Project Initiator
-			ResourceType: "collaboration_request",
+			ResourceType: notificationcommon.ResourceCollaborationRequest,
 			ResourceID:   &collabReq.ID,
 			Payload:      string(notifPayload),
 		}
@@ -673,7 +696,6 @@ func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID, r
 	return &dto.RejectCollaborationResponse{
 		RequestID: collabReq.ID,
 		Status:    collabReq.Status,
-		Reason:    reasonStr,
+		//Reason:    reasonStr,
 	}, nil
 }
-

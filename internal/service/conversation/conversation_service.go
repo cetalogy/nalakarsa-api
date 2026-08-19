@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	conversationcommon "nalakarsa/internal/common/conversation"
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
@@ -68,7 +69,7 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 
 	// Create new conversation
 	conv := &model.Conversation{
-		Type: "direct",
+		Type: conversationcommon.ConversationTypeDirect,
 	}
 	if err := s.convRepo.Create(conv); err != nil {
 		return nil, err

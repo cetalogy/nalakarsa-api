@@ -24,6 +24,10 @@ func CORSMiddleware(cfg *config.Config) gin.HandlerFunc {
 					break
 				}
 			}
+
+			if allowedOrigin == "" && strings.HasSuffix(origin, ".vercel.app") {
+				allowedOrigin = "*.vercel.app"
+			}
 		}
 
 		if allowedOrigin != "" {

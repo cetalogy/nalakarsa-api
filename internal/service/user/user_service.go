@@ -7,6 +7,7 @@ import (
 
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
+	notificationcommon "nalakarsa/internal/common/notification"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
@@ -298,9 +299,9 @@ func (s *userService) ToggleFollow(currentUserID, targetUserID uuid.UUID) (*dto.
 
 		notif := model.Notification{
 			UserID:       targetUserID, // Sent to the user being followed
-			Type:         "follow",
+			Type:         notificationcommon.TypeFollow,
 			ActorID:      &currentUserID, // Follower
-			ResourceType: "user",
+			ResourceType: notificationcommon.ResourceUser,
 			ResourceID:   &currentUserID,
 			Payload:      string(notifPayload),
 		}
