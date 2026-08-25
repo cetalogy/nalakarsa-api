@@ -30,7 +30,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		logger.Config{
 			SlowThreshold:             200 * time.Millisecond,
 			LogLevel:                  logger.Warn,
-			IgnoreRecordNotFoundError:  true,
+			IgnoreRecordNotFoundError: true,
 			Colorful:                  true,
 		},
 	)
@@ -41,7 +41,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			logger.Config{
 				SlowThreshold:             200 * time.Millisecond,
 				LogLevel:                  logger.Warn,
-				IgnoreRecordNotFoundError:  true,
+				IgnoreRecordNotFoundError: true,
 				Colorful:                  false,
 			},
 		)
@@ -80,6 +80,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			// Core
 			&model.User{},
 			&model.UserFollower{},
+			&model.Expertise{},
 
 			&model.RefreshToken{},
 
@@ -126,6 +127,13 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	// Ensure Counter Cache columns exist
 	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS replies_count BIGINT DEFAULT 0 NOT NULL").Error
 	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS upvote_count BIGINT DEFAULT 0 NOT NULL").Error
+	_ = db.Exec("CREATE EXTENSION IF NOT EXISTS pg_trgm").Error
+	_ = db.Exec("DELETE FROM refresh_tokens WHERE expires_at <= NOW()").Error
+	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens (expires_at)").Error
+	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC)").Error
+	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages (conversation_id, created_at DESC)").Error
+	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_connections_requester_status ON connections (requester_id, status)").Error
+	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_connections_addressee_status ON connections (addressee_id, status)").Error
 
 	// Ensure Compound Performance Indexes exist
 	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_replies_discussion_created ON discussion_replies (discussion_id, created_at DESC)").Error
@@ -136,4 +144,18 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	_ = db.Exec("UPDATE users SET avatar_url = REPLACE(avatar_url, '/avatars/avatars/', '/avatars/') WHERE avatar_url LIKE '%/avatars/avatars/%'").Error
 
 	return db, nil
+}
+
+// StartRefreshTokenCleanup removes expired sessions even when no user calls the
+// refresh endpoint. It runs in the application process against PostgreSQL.
+func StartRefreshTokenCleanup(db *gorm.DB) {
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := db.Exec("DELETE FROM refresh_tokens WHERE expires_at <= NOW()").Error; err != nil {
+				log.Printf("refresh token cleanup failed: %v", err)
+			}
+		}
+	}()
 }

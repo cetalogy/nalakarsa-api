@@ -18,11 +18,13 @@ type StartChatRequest struct {
 }
 
 type ConversationResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Role        string    `json:"role"`
-	Avatar      string    `json:"avatar"`
-	LastMessage string    `json:"lastMessage"`
+	ID                 uuid.UUID `json:"id"`
+	Name               string    `json:"name"`
+	Role               string    `json:"role"`
+	Avatar             string    `json:"avatar"`
+	LastMessage        string    `json:"lastMessage"`
+	LastMessageText    string    `json:"last_message,omitempty"`
+	LastMessagePreview string    `json:"last_message_preview,omitempty"`
 }
 
 // --- Message DTOs ---

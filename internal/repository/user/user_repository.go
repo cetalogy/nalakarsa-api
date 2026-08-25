@@ -118,7 +118,12 @@ func (r *pgUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, 
 func (r *pgUserRepository) UpdateProfile(u *model.User) error {
 	return r.db.Model(&model.User{}).
 		Where("id = ?", u.ID).
-		Updates(u).Error
+		Updates(map[string]interface{}{
+			"first_name": u.FirstName, "middle_name": u.MiddleName, "last_name": u.LastName,
+			"full_name": u.FullName, "prefix_title": u.PrefixTitle, "suffix_title": u.SuffixTitle,
+			"affiliation": u.Affiliation, "location": u.Location, "expertise": u.Expertise,
+			"industry": u.Industry, "bio": u.Bio, "mission": u.Mission, "avatar_url": u.AvatarURL,
+		}).Error
 }
 
 func (r *pgUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
@@ -164,10 +169,18 @@ func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]mo
 }
 
 func (r *pgUserRepository) CreateRefreshToken(rt *model.RefreshToken) error {
+	// Remove expired sessions before creating a new one.
+	if err := r.db.Where("expires_at <= ?", time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
+		return err
+	}
 	return r.db.Create(rt).Error
 }
 
 func (r *pgUserRepository) GetRefreshToken(token string) (*model.RefreshToken, error) {
+	// Opportunistically clean all expired refresh sessions on refresh requests.
+	if err := r.db.Where("expires_at <= ?", time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
+		return nil, err
+	}
 	var rt model.RefreshToken
 	err := r.db.Where("token = ?", token).First(&rt).Error
 	if err != nil {
@@ -312,4 +325,3 @@ func (r *pgUserRepository) CountFollowing(userID uuid.UUID) (int64, error) {
 	err := r.db.Model(&model.UserFollower{}).Where("follower_id = ?", userID).Count(&count).Error
 	return count, err
 }
-

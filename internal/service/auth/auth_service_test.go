@@ -207,7 +207,6 @@ func (m *mockUserRepository) CountFollowing(targetUserID uuid.UUID) (int64, erro
 	return 0, nil
 }
 
-
 func TestRegisterAndLogin(t *testing.T) {
 	mockRepo := newMockUserRepository()
 	cfg := &config.Config{
@@ -222,7 +221,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	// Test case 1: Successful Registration
 	regReq := dto.RegisterRequest{
 		Email:       "test@nalakarsa.id",
-		Password:    "password123",
+		Password:    "Password123!",
 		Role:        "profesional",
 		FirstName:   "Test",
 		LastName:    "User",
@@ -250,7 +249,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	// Test case 3: Successful Login
 	loginReq := dto.LoginRequest{
 		Email:    "test@nalakarsa.id",
-		Password: "password123",
+		Password: "Password123!",
 	}
 
 	loginData, err := authServ.Login(loginReq, nil)

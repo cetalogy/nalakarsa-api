@@ -288,11 +288,13 @@ func (s *conversationService) buildConversationResponse(conv *model.Conversation
 	}
 
 	return &dto.ConversationResponse{
-		ID:          conv.ID,
-		Name:        name,
-		Role:        role,
-		Avatar:      avatar,
-		LastMessage: lastMessageText,
+		ID:                 conv.ID,
+		Name:               name,
+		Role:               role,
+		Avatar:             avatar,
+		LastMessage:        lastMessageText,
+		LastMessageText:    lastMessageText,
+		LastMessagePreview: lastMessageText,
 	}, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
@@ -34,7 +35,16 @@ func NewAuthService(userRepo userrepository.UserRepository, cfg *config.Config) 
 func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
 	// Normalize email
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-
+	// Validasi email resmi (tidak boleh menggunakan domain publik gratisan)
+	publicDomains := []string{
+		"gmail.com", "yahoo.com", "ymail.com", "hotmail.com",
+		"outlook.com", "live.com", "icloud.com", "aol.com", "ac.id",
+	}
+	for _, domain := range publicDomains {
+		if strings.HasSuffix(req.Email, "@"+domain) {
+			return nil, errors.New("must use an official institutional or corporate email address (gmail/yahoo are not allowed)")
+		}
+	}
 	// Check if user already exists
 	existing, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
@@ -42,6 +52,9 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	}
 	if existing != nil {
 		return nil, errors.New("email is already registered")
+	}
+	if err := validatePassword(req.Password); err != nil {
+		return nil, err
 	}
 
 	// Hash password
@@ -111,6 +124,32 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 			AvatarURL:   u.AvatarURL,
 		},
 	}, nil
+}
+
+func validatePassword(password string) error {
+	if len([]rune(password)) < 6 {
+		return errors.New("password must be at least 6 characters")
+	}
+	if len([]rune(password)) > 72 {
+		return errors.New("password must not exceed 72 characters")
+	}
+	var upper, lower, number, special bool
+	for _, char := range password {
+		switch {
+		case unicode.IsUpper(char):
+			upper = true
+		case unicode.IsLower(char):
+			lower = true
+		case unicode.IsNumber(char):
+			number = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char):
+			special = true
+		}
+	}
+	if !upper || !lower || !number || !special {
+		return errors.New("password must contain uppercase, lowercase, number, and special character")
+	}
+	return nil
 }
 
 func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {

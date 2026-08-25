@@ -16,5 +16,6 @@ const (
 	StatusSuspended = "suspended"
 
 	// File Upload Constraints
-	MaxAvatarSize = 5 * 1024 * 1024 // 5MB
+	MaxAvatarSize        = 5 * 1024 * 1024 // 5MB
+	MaxAvatarRequestSize = 6 * 1024 * 1024 // 5MB file plus multipart overhead
 )

@@ -14,6 +14,7 @@ type NotificationResponse struct {
 	ResourceType string     `json:"resource_type,omitempty"`
 	ResourceID   *uuid.UUID `json:"resource_id,omitempty"`
 	Message      string     `json:"message"`
+	Title        string     `json:"title,omitempty"`
 	ReadAt       *time.Time `json:"read_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 }

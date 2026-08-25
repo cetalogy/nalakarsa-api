@@ -374,6 +374,30 @@ func (h *ProjectHandler) ApproveCollabRequest(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusOK, "Collaboration request approved successfully", res, nil)
 }
 
+func (h *ProjectHandler) WithdrawCollabRequest(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	requestID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid collaboration request ID format")
+		return
+	}
+	if err := h.projService.WithdrawCollabRequest(requestID, userID.(uuid.UUID)); err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "collaboration request not found" {
+			status = http.StatusNotFound
+		} else if err.Error() == "only the applicant can withdraw this collaboration request" {
+			status = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, status, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusOK, "Collaboration request withdrawn successfully", nil, nil)
+}
+
 func (h *ProjectHandler) RejectCollabRequest(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
