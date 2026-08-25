@@ -12,16 +12,21 @@ import (
 	conversationhandler "nalakarsa/internal/handler/conversation"
 	dashboardhandler "nalakarsa/internal/handler/dashboard"
 	discussionhandler "nalakarsa/internal/handler/discussion"
+	expertisehandler "nalakarsa/internal/handler/expertise"
 	homepagehandler "nalakarsa/internal/handler/homepage"
+	institutionhandler "nalakarsa/internal/handler/institution"
+	locationhandler "nalakarsa/internal/handler/location"
 	notificationhandler "nalakarsa/internal/handler/notification"
 	projecthandler "nalakarsa/internal/handler/project"
 	userhandler "nalakarsa/internal/handler/user"
 	"nalakarsa/internal/middleware"
-	"nalakarsa/internal/utils"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	conversationrepository "nalakarsa/internal/repository/conversation"
 	discussionrepository "nalakarsa/internal/repository/discussion"
+	expertiserepository "nalakarsa/internal/repository/expertise"
 	homerepository "nalakarsa/internal/repository/homepage"
+	institutionrepository "nalakarsa/internal/repository/institution"
+	locationrepository "nalakarsa/internal/repository/location"
 	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
@@ -30,10 +35,14 @@ import (
 	conversationservice "nalakarsa/internal/service/conversation"
 	dashboardservice "nalakarsa/internal/service/dashboard"
 	discussionservice "nalakarsa/internal/service/discussion"
+	expertiseservice "nalakarsa/internal/service/expertise"
 	homepageService "nalakarsa/internal/service/homepage"
+	institutionservice "nalakarsa/internal/service/institution"
+	locationservice "nalakarsa/internal/service/location"
 	notificationservice "nalakarsa/internal/service/notification"
 	projectservice "nalakarsa/internal/service/project"
 	userservice "nalakarsa/internal/service/user"
+	"nalakarsa/internal/utils"
 
 	"nalakarsa/internal/routes"
 	authroutes "nalakarsa/internal/routes/auth"
@@ -41,7 +50,10 @@ import (
 	conversationroutes "nalakarsa/internal/routes/conversation"
 	dashboardroutes "nalakarsa/internal/routes/dashboard"
 	discussionroutes "nalakarsa/internal/routes/discussion"
+	expertiseroutes "nalakarsa/internal/routes/expertise"
 	homeroutes "nalakarsa/internal/routes/homepage"
+	institutionroutes "nalakarsa/internal/routes/institution"
+	locationroutes "nalakarsa/internal/routes/location"
 	notificationroutes "nalakarsa/internal/routes/notification"
 	projectroutes "nalakarsa/internal/routes/project"
 	userroutes "nalakarsa/internal/routes/user"
@@ -74,39 +86,49 @@ func main() {
 		log.Println("Database seeding completed. Exiting application...")
 		return
 	}
+	database.StartRefreshTokenCleanup(db)
 
 	// 4. Initialize Dependency Layers (Dependency Injection)
 
 	// Repositories
 	userRepo := userrepository.NewUserRepository(db)
 	discRepo := discussionrepository.NewDiscussionRepository(db)
+	expertiseRepo := expertiserepository.NewExpertiseRepository(db)
 	connRepo := connectionrepository.NewConnectionRepository(db)
 	projRepo := projectrepository.NewProjectRepository(db)
 	convRepo := conversationrepository.NewConversationRepository(db)
 	notifRepo := notificationrepository.NewNotificationRepository(db)
 	homeRepo := homerepository.NewHomepageRepository(db)
+	institutionRepo := institutionrepository.NewInstitutionRepository()
+	locationRepo := locationrepository.NewLocationRepository()
 
 	// Services
 	authService := authservice.NewAuthService(userRepo, cfg)
 	userService := userservice.NewUserService(userRepo, connRepo, projRepo, notifRepo)
 	discService := discussionservice.NewDiscussionService(discRepo, userRepo)
+	expertiseService := expertiseservice.NewExpertiseService(expertiseRepo)
 	connService := connectionservice.NewConnectionService(connRepo, userRepo)
 	projService := projectservice.NewProjectService(projRepo, userRepo, discRepo, notifRepo)
 	convService := conversationservice.NewConversationService(convRepo, userRepo, cfg)
 	notifService := notificationservice.NewNotificationService(notifRepo)
 	dashService := dashboardservice.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)
 	homeService := homepageService.NewHomepageService(homeRepo)
+	institutionService := institutionservice.NewInstitutionService(institutionRepo)
+	locationService := locationservice.NewLocationService(locationRepo)
 
 	// Handlers
 	authHandler := authhandler.NewAuthHandler(authService)
 	userHandler := userhandler.NewUserHandler(userService, cfg)
 	discHandler := discussionhandler.NewDiscussionHandler(discService)
+	expertiseHandler := expertisehandler.NewExpertiseHandler(expertiseService)
 	connHandler := connectionhandler.NewConnectionHandler(connService)
 	projHandler := projecthandler.NewProjectHandler(projService)
 	convHandler := conversationhandler.NewConversationHandler(convService)
 	notifHandler := notificationhandler.NewNotificationHandler(notifService)
 	dashHandler := dashboardhandler.NewDashboardHandler(dashService)
 	homeHandler := homepagehandler.NewHomepageHandler(homeService)
+	institutionHandler := institutionhandler.NewInstitutionHandler(institutionService)
+	locationHandler := locationhandler.NewLocationHandler(locationService)
 
 	// 5. Setup Routes
 	r := routes.NewRouter(cfg)
@@ -117,8 +139,11 @@ func main() {
 	authroutes.RegisterRoutes(v1, protected, authHandler)
 	userroutes.RegisterRoutes(v1, protected, userHandler, connHandler.GetSuggestions)
 	discussionroutes.RegisterRoutes(v1, protected, discHandler)
+	expertiseroutes.RegisterRoutes(v1, expertiseHandler)
 	connectionroutes.RegisterRoutes(protected, connHandler)
 	projectroutes.RegisterRoutes(v1, protected, projHandler)
+	institutionroutes.RegisterRoutes(v1, institutionHandler)
+	locationroutes.RegisterRoutes(v1, locationHandler)
 	conversationroutes.RegisterRoutes(protected, convHandler)
 	notificationroutes.RegisterRoutes(protected, notifHandler)
 	dashboardroutes.RegisterRoutes(protected, dashHandler)

@@ -29,4 +29,5 @@ func RegisterRoutes(public *gin.RouterGroup, protected *gin.RouterGroup, h *proj
 	protected.GET("/collaborations/requests", h.ListCollabRequests)
 	protected.PATCH("/collaborations/requests/:id/approve", h.ApproveCollabRequest)
 	protected.PATCH("/collaborations/requests/:id/reject", h.RejectCollabRequest)
+	protected.DELETE("/collaborations/requests/:id", h.WithdrawCollabRequest)
 }

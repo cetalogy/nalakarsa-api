@@ -10,7 +10,7 @@ import (
 type NotificationRepository interface {
 	Create(notif *model.Notification) error
 	ListByUser(userID uuid.UUID, page, limit int) ([]model.Notification, int64, error)
-	MarkRead(id uuid.UUID) error
+	MarkRead(userID, id uuid.UUID) error
 	MarkAllRead(userID uuid.UUID) error
 	CountUnread(userID uuid.UUID) (int64, error)
 }
@@ -45,8 +45,8 @@ func (r *pgNotificationRepository) ListByUser(userID uuid.UUID, page, limit int)
 	return notifs, total, err
 }
 
-func (r *pgNotificationRepository) MarkRead(id uuid.UUID) error {
-	return r.db.Exec("UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL", id).Error
+func (r *pgNotificationRepository) MarkRead(userID, id uuid.UUID) error {
+	return r.db.Exec("UPDATE notifications SET read_at = NOW() WHERE id = ? AND user_id = ? AND read_at IS NULL", id, userID).Error
 }
 
 func (r *pgNotificationRepository) MarkAllRead(userID uuid.UUID) error {

@@ -191,6 +191,14 @@ func (r *pgConversationRepository) ListGroupChatsByUser(userID uuid.UUID) ([]mod
 
 	err := r.db.Preload("Members.User").
 		Where("id IN (?)", subQuery).
+		Where(`EXISTS (
+			SELECT 1 FROM projects p
+			WHERE p.id = group_chats.project_id
+			AND (p.owner_id = ? OR EXISTS (
+				SELECT 1 FROM project_members pm
+				WHERE pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'active'
+			))
+		)`, userID, userID).
 		Order("created_at desc").
 		Find(&groupChats).Error
 
@@ -220,7 +228,16 @@ func (r *pgConversationRepository) IsGroupChatMember(groupChatID, userID uuid.UU
 
 	var count int64
 	err = r.db.Model(&model.GroupChatMember{}).
-		Where("group_chat_id = ? AND user_id = ?", gc.ID, userID).
+		Joins("JOIN group_chats ON group_chats.id = group_chat_members.group_chat_id").
+		Where("group_chat_members.group_chat_id = ? AND group_chat_members.user_id = ?", gc.ID, userID).
+		Where(`EXISTS (
+			SELECT 1 FROM projects p
+			WHERE p.id = group_chats.project_id
+			AND (p.owner_id = ? OR EXISTS (
+				SELECT 1 FROM project_members pm
+				WHERE pm.project_id = p.id AND pm.user_id = ? AND pm.status = 'active'
+			))
+		)`, userID, userID).
 		Count(&count).Error
 	return count > 0, err
 }

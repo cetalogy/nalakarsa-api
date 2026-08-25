@@ -27,6 +27,10 @@ func SeedData(db *gorm.DB) error {
 
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.User{})
 
+	if err := SeedExpertise(db); err != nil {
+		return err
+	}
+
 	hashedPassword, err := utils.HashPassword("password123")
 	if err != nil {
 		return err

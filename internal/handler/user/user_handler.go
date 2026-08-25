@@ -1,14 +1,15 @@
 package userhandler
 
 import (
+	"io"
 	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
 
+	usercommon "nalakarsa/internal/common/user"
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
-	usercommon "nalakarsa/internal/common/user"
 	userservice "nalakarsa/internal/service/user"
 	"nalakarsa/internal/utils"
 
@@ -211,6 +212,7 @@ func (h *UserHandler) GetMyStats(c *gin.Context) {
 }
 
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, usercommon.MaxAvatarRequestSize)
 	var userID uuid.UUID
 	if userIDInterface, exists := c.Get("user_id"); exists {
 		userID = userIDInterface.(uuid.UUID)
@@ -263,14 +265,25 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		".png":  true,
 	}
 	contentType := file.Header.Get("Content-Type")
-	allowedTypes := map[string]bool{
-		"image/jpeg":               true,
-		"image/jpg":                true,
-		"image/png":                true,
-		"application/octet-stream": true, // fallback for binary streams with valid extension
-	}
-	if !allowedExts[ext] || !allowedTypes[contentType] {
+	if !allowedExts[ext] || (contentType != "image/jpeg" && contentType != "image/jpg" && contentType != "image/png") {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid file type. Only JPG, JPEG, and PNG are allowed")
+		return
+	}
+	openedFile, err := file.Open()
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Unable to read uploaded image")
+		return
+	}
+	defer openedFile.Close()
+	header := make([]byte, 512)
+	readCount, err := openedFile.Read(header)
+	if err != nil && err != io.EOF {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Unable to inspect uploaded image")
+		return
+	}
+	detectedType := http.DetectContentType(header[:readCount])
+	if detectedType != "image/jpeg" && detectedType != "image/png" {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Uploaded file is not a valid JPG or PNG image")
 		return
 	}
 

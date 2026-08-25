@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	notificationcommon "nalakarsa/internal/common/notification"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
-	notificationcommon "nalakarsa/internal/common/notification"
 	connectionrepository "nalakarsa/internal/repository/connection"
 	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
@@ -104,12 +104,12 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		return errors.New("user not found")
 	}
 
-	firstName := req.GetFirstName()
+	firstName := req.FirstName
 	if firstName == "" {
 		firstName = existingUser.FirstName
 	}
 
-	middleName := req.GetMiddleName()
+	middleName := req.MiddleName
 	var middleNamePtr *string
 	if middleName != "" {
 		middleNamePtr = &middleName
@@ -117,12 +117,12 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		middleNamePtr = existingUser.MiddleName
 	}
 
-	lastName := req.GetLastName()
+	lastName := req.LastName
 	if lastName == "" {
 		lastName = existingUser.LastName
 	}
 
-	fullName := req.GetFullName()
+	fullName := req.FullName
 	if fullName == "" {
 		if middleNamePtr != nil && *middleNamePtr != "" {
 			fullName = fmt.Sprintf("%s %s %s", firstName, *middleNamePtr, lastName)
@@ -131,12 +131,12 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		}
 	}
 
-	prefixTitle := req.GetPrefixTitle()
+	prefixTitle := req.PrefixTitle
 	if prefixTitle == "" {
 		prefixTitle = existingUser.PrefixTitle
 	}
 
-	suffixTitle := req.GetSuffixTitle()
+	suffixTitle := req.SuffixTitle
 	if suffixTitle == "" {
 		suffixTitle = existingUser.SuffixTitle
 	}

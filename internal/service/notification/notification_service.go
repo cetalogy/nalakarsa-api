@@ -1,6 +1,8 @@
 package notificationservice
 
 import (
+	"encoding/json"
+
 	"nalakarsa/internal/dto"
 	notificationrepository "nalakarsa/internal/repository/notification"
 
@@ -30,6 +32,11 @@ func (s *notificationService) ListNotifications(userID uuid.UUID, page, limit in
 	res := make([]dto.NotificationResponse, len(notifs))
 	for i, n := range notifs {
 		actorName := ""
+		var payload struct {
+			Title   string `json:"title"`
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal([]byte(n.Payload), &payload)
 		if n.Actor != nil {
 			actorName = n.Actor.FullName
 		}
@@ -41,6 +48,8 @@ func (s *notificationService) ListNotifications(userID uuid.UUID, page, limit in
 			ActorName:    actorName,
 			ResourceType: n.ResourceType,
 			ResourceID:   n.ResourceID,
+			Message:      payload.Message,
+			Title:        payload.Title,
 			ReadAt:       n.ReadAt,
 			CreatedAt:    n.CreatedAt,
 		}
@@ -50,7 +59,7 @@ func (s *notificationService) ListNotifications(userID uuid.UUID, page, limit in
 }
 
 func (s *notificationService) MarkRead(userID uuid.UUID, notifID uuid.UUID) error {
-	return s.notifRepo.MarkRead(notifID)
+	return s.notifRepo.MarkRead(userID, notifID)
 }
 
 func (s *notificationService) MarkAllRead(userID uuid.UUID) error {

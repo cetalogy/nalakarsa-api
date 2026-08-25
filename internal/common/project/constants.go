@@ -23,7 +23,8 @@ const (
 	MilestoneStatusCompleted  = "completed"
 
 	// Collaboration Request Status
-	CollabStatusPending  = "PENDING"
-	CollabStatusAccepted = "ACCEPTED"
-	CollabStatusRejected = "REJECTED"
+	CollabStatusPending   = "PENDING"
+	CollabStatusAccepted  = "ACCEPTED"
+	CollabStatusRejected  = "REJECTED"
+	CollabStatusCancelled = "CANCELLED"
 )

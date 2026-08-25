@@ -1,27 +1,23 @@
 package dto
 
-
-
 type RegisterRequest struct {
-	Email          string `json:"email" binding:"required,email"`
-	Password       string `json:"password" binding:"required,min=6"`
-	Role           string `json:"role" binding:"required"`
-	FirstName      string  `json:"firstName" binding:"required"`
-	MiddleName     *string `json:"middleName"`
-	LastName       string  `json:"lastName" binding:"required"`
-	FullName       string  `json:"fullName" binding:"required"`
-	PrefixTitle    string  `json:"prefixTitle"`
-	SuffixTitle    string  `json:"suffixTitle"`
-	Affiliation    string  `json:"affiliation" binding:"required"`
-	Location       string  `json:"location" binding:"required"`
-	Expertise      string  `json:"expertise" binding:"required"`
-	Industry       string `json:"industry"`
-	Bio            string `json:"bio"`
-	Mission        string `json:"mission"`
-	AvatarURL      string `json:"avatar_url"`
+	Email       string  `json:"email" binding:"required,email"`
+	Password    string  `json:"password" binding:"required,min=6,max=72"`
+	Role        string  `json:"role" binding:"required"`
+	FirstName   string  `json:"firstName" binding:"required"`
+	MiddleName  *string `json:"middleName"`
+	LastName    string  `json:"lastName" binding:"required"`
+	FullName    string  `json:"fullName" binding:"required"`
+	PrefixTitle string  `json:"prefixTitle"`
+	SuffixTitle string  `json:"suffixTitle"`
+	Affiliation string  `json:"affiliation" binding:"required"`
+	Location    string  `json:"location" binding:"required"`
+	Expertise   string  `json:"expertise" binding:"required"`
+	Industry    string  `json:"industry"`
+	Bio         string  `json:"bio" binding:"max=500"`
+	Mission     string  `json:"mission"`
+	AvatarURL   string  `json:"avatar_url"`
 }
-
-
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -62,5 +58,5 @@ type ForgotPasswordRequest struct {
 
 type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6"`
+	NewPassword string `json:"new_password" binding:"required,min=6,max=72"`
 }

@@ -37,6 +37,7 @@ type ProjectService interface {
 	ListCollabRequests(userID uuid.UUID) ([]dto.CollaborationRequestItemResponse, error)
 	ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*dto.ApproveCollaborationResponse, error)
 	RejectCollabRequest(requestID, initiatorID uuid.UUID) (*dto.RejectCollaborationResponse, error)
+	WithdrawCollabRequest(requestID, applicantID uuid.UUID) error
 }
 
 type projectService struct {
@@ -639,6 +640,10 @@ func (s *projectService) ApproveCollabRequest(requestID, initiatorID uuid.UUID) 
 		ProjectID:   projectID,
 		GroupChatID: groupChatID,
 	}, nil
+}
+
+func (s *projectService) WithdrawCollabRequest(requestID, applicantID uuid.UUID) error {
+	return s.projRepo.WithdrawCollabRequest(requestID, applicantID)
 }
 
 func (s *projectService) RejectCollabRequest(requestID, initiatorID uuid.UUID) (*dto.RejectCollaborationResponse, error) {

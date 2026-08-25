@@ -47,6 +47,7 @@ type ProjectRepository interface {
 	HasPendingCollabRequest(applicantID uuid.UUID, discussionID, projectID *uuid.UUID) (bool, error)
 	ApproveCollabRequest(requestID, initiatorID uuid.UUID) (*model.CollaborationRequest, *model.Project, *model.GroupChat, error)
 	RejectCollabRequest(requestID, initiatorID uuid.UUID) (*model.CollaborationRequest, error)
+	WithdrawCollabRequest(requestID, applicantID uuid.UUID) error
 }
 
 type pgProjectRepository struct {
@@ -495,9 +496,9 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			UserID:       collabReq.ApplicantID,
 			Type:         "collaboration",
 			ActorID:      &initiatorID,
-			ResourceType: "project",
-			ResourceID:   &proj.ID,
-			Payload:      `{"title":"Collaboration Request Approved","message":"Your collaboration request has been approved by the initiator."}`,
+			ResourceType: "group_chat",
+			ResourceID:   &groupChat.ID,
+			Payload:      fmt.Sprintf(`{"title":"Collaboration Request Approved","message":"Your collaboration request has been approved by the initiator.","projectId":"%s","groupChatId":"%s"}`, proj.ID, groupChat.ID),
 		}
 		if err := tx.Create(&notif).Error; err != nil {
 			return err
@@ -573,4 +574,45 @@ func (r *pgProjectRepository) RejectCollabRequest(requestID, initiatorID uuid.UU
 	}
 
 	return &collabReq, nil
+}
+
+func (r *pgProjectRepository) WithdrawCollabRequest(requestID, applicantID uuid.UUID) error {
+	var request model.CollaborationRequest
+	if err := r.db.Where("id = ?", requestID).First(&request).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("collaboration request not found")
+		}
+		return err
+	}
+	if request.ApplicantID != applicantID {
+		return errors.New("only the applicant can withdraw this collaboration request")
+	}
+	if request.Status != projectcommon.CollabStatusPending && request.Status != projectcommon.CollabStatusAccepted {
+		return errors.New("collaboration request cannot be withdrawn")
+	}
+
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		request.Status = projectcommon.CollabStatusCancelled
+		if err := tx.Save(&request).Error; err != nil {
+			return err
+		}
+		if request.ProjectID == nil {
+			return nil
+		}
+		if err := tx.Model(&model.ProjectMember{}).
+			Where("project_id = ? AND user_id = ?", *request.ProjectID, applicantID).
+			Update("status", "removed").Error; err != nil {
+			return err
+		}
+		var chats []model.GroupChat
+		if err := tx.Where("project_id = ?", *request.ProjectID).Find(&chats).Error; err != nil {
+			return err
+		}
+		for _, chat := range chats {
+			if err := tx.Where("group_chat_id = ? AND user_id = ?", chat.ID, applicantID).Delete(&model.GroupChatMember{}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
