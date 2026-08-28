@@ -10,7 +10,9 @@ import (
 type User struct {
 	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	Email           string         `gorm:"type:varchar(255);uniqueIndex;not null"`
-	PasswordHash    string         `gorm:"type:varchar(255);not null"`
+	PasswordHash       string         `gorm:"type:varchar(255);not null"`
+	SecurityQuestion   string         `gorm:"type:varchar(30);not null;default:''"`
+	SecurityAnswerHash string         `gorm:"type:varchar(255);not null;default:''"`
 	Role            string         `gorm:"type:varchar(50);not null"`                  // akademisi, praktisi, profesional
 	SystemRole      string         `gorm:"type:varchar(20);not null;default:'user'"`   // user, moderator, admin
 	Status          string         `gorm:"type:varchar(20);not null;default:'active'"` // active, suspended

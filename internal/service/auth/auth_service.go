@@ -14,6 +14,7 @@ import (
 	"nalakarsa/internal/utils"
 
 	"github.com/google/uuid"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthService interface {
@@ -21,6 +22,14 @@ type AuthService interface {
 	Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error)
 	RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthRequestContext) (*dto.RefreshTokenData, error)
 	Logout(token string) error
+	RequestPasswordReset(req dto.ForgotPasswordRequest) (string, error)
+	ResetPassword(req dto.ResetPasswordRequest) error
+}
+
+type passwordResetClaims struct {
+	Purpose string `json:"purpose"`
+	UserID  string `json:"user_id"`
+	jwt.RegisteredClaims
 }
 
 type authService struct {
@@ -56,6 +65,10 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	if err := validatePassword(req.Password); err != nil {
 		return nil, err
 	}
+	securityAnswerHash, err := utils.HashPassword(normalizeSecurityAnswer(req.SecurityAnswer))
+	if err != nil {
+		return nil, err
+	}
 
 	// Hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
@@ -67,6 +80,8 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	u := &model.User{
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
+		SecurityQuestion: req.SecurityQuestion,
+		SecurityAnswerHash: securityAnswerHash,
 		Role:         req.Role,
 		SystemRole:   "user",
 		Status:       "active",
@@ -80,6 +95,7 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 		Location:     req.Location,
 		Expertise:    req.Expertise,
 		Industry:     req.Industry,
+		Bio:          req.Bio,
 	}
 
 	if err := s.userRepo.Create(u); err != nil {
@@ -120,7 +136,7 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 			Location:    u.Location,
 			Expertise:   u.Expertise,
 			Industry:    u.Industry,
-			Mission:     u.Mission,
+			Bio:         u.Bio,
 			AvatarURL:   u.AvatarURL,
 		},
 	}, nil
@@ -219,7 +235,7 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 			Location:    u.Location,
 			Expertise:   u.Expertise,
 			Industry:    u.Industry,
-			Mission:     u.Mission,
+			Bio:         u.Bio,
 			AvatarURL:   u.AvatarURL,
 		},
 	}, nil
@@ -295,6 +311,66 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 
 func (s *authService) Logout(token string) error {
 	return s.userRepo.DeleteRefreshToken(token)
+}
+
+func (s *authService) RequestPasswordReset(req dto.ForgotPasswordRequest) (string, error) {
+	user, err := s.userRepo.GetByEmail(strings.ToLower(strings.TrimSpace(req.Email)))
+	if err != nil {
+		return "", err
+	}
+	if user == nil || user.SecurityQuestion != req.SecurityQuestion || !utils.ComparePassword(user.SecurityAnswerHash, normalizeSecurityAnswer(req.SecurityAnswer)) {
+		return "", errors.New("security question answer is incorrect")
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, passwordResetClaims{
+		Purpose: "password_reset",
+		UserID:  user.ID.String(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	})
+	signedToken, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	if err != nil {
+		return "", err
+	}
+
+	return signedToken, nil
+}
+
+func (s *authService) ResetPassword(req dto.ResetPasswordRequest) error {
+	claims := &passwordResetClaims{}
+	token, err := jwt.ParseWithClaims(req.Token, claims, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("invalid reset token signing method")
+		}
+		return []byte(s.cfg.JWTSecret), nil
+	})
+	if err != nil || !token.Valid || claims.Purpose != "password_reset" {
+		return errors.New("invalid or expired password reset token")
+	}
+
+	userID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return errors.New("invalid password reset user")
+	}
+	if err := validatePassword(req.NewPassword); err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return errors.New("user not found")
+	}
+	passwordHash, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = passwordHash
+	return s.userRepo.UpdateProfile(user)
+}
+
+func normalizeSecurityAnswer(answer string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(answer)), " "))
 }
 
 func (s *authService) saveRefreshTokenWithSessionMeta(

@@ -131,6 +131,28 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 	utils.JSONResponse(c, http.StatusCreated, "Message sent successfully", msg, nil)
 }
 
+func (h *ConversationHandler) UploadAttachment(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid conversation ID format")
+		return
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File is required")
+		return
+	}
+
+	attachment, err := h.convService.UploadAttachment(userID, conversationID, file)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusCreated, "Attachment uploaded successfully", attachment, nil)
+}
+
 func (h *ConversationHandler) MarkRead(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 	convID, err := uuid.Parse(c.Param("id"))
@@ -239,6 +261,38 @@ func (h *ConversationHandler) SendGroupMessage(c *gin.Context) {
 	}
 
 	utils.JSONResponse(c, http.StatusCreated, "Group message sent successfully", msg, nil)
+}
+
+func (h *ConversationHandler) UploadGroupAttachment(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+	groupIDStr := c.Param("groupId")
+	if groupIDStr == "" {
+		groupIDStr = c.Param("id")
+	}
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_topic_")
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_project_")
+	groupIDStr = strings.TrimPrefix(groupIDStr, "group_")
+
+	groupID, err := uuid.Parse(groupIDStr)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid group chat ID format")
+		return
+	}
+	file, err := c.FormFile("file")
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File is required")
+		return
+	}
+	attachment, err := h.convService.UploadGroupAttachment(userID, groupID, file)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		if strings.HasPrefix(err.Error(), "unauthorized") {
+			statusCode = http.StatusForbidden
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusCreated, "Group attachment uploaded successfully", attachment, nil)
 }
 
 func (h *ConversationHandler) DeleteMessage(c *gin.Context) {

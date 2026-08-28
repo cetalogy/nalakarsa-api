@@ -43,6 +43,14 @@ type GroupMessage struct {
 	SenderID        *uuid.UUID `gorm:"type:uuid;index"` // NULL if system message
 	IsSystemMessage bool       `gorm:"default:false;not null"`
 	Content         string     `gorm:"type:text;not null"`
+
+	// Optional attachment metadata. The actual file is stored in Supabase Storage.
+	AttachmentPath     string `gorm:"type:text"`
+	AttachmentName     string `gorm:"type:varchar(255)"`
+	AttachmentMimeType string `gorm:"type:varchar(100)"`
+	AttachmentSize     int64  `gorm:"default:0"`
+	AttachmentType     string `gorm:"type:varchar(20)"` // image or file
+
 	CreatedAt       time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	// Relations

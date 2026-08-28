@@ -124,6 +124,28 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		log.Println("Database auto-migration is disabled (DB_AUTO_MIGRATE=false).")
 	}
 
+	// Ensure columns introduced after the initial schema are present on existing databases.
+	// These statements are idempotent and do not remove existing data.
+	latestSchemaStatements := []string{
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(30) NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_path TEXT`,
+		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name VARCHAR(255)`,
+		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_mime_type VARCHAR(100)`,
+		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_size BIGINT DEFAULT 0`,
+		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type VARCHAR(20)`,
+		`ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS attachment_path TEXT`,
+		`ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS attachment_name VARCHAR(255)`,
+		`ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS attachment_mime_type VARCHAR(100)`,
+		`ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS attachment_size BIGINT DEFAULT 0`,
+		`ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS attachment_type VARCHAR(20)`,
+	}
+	for _, statement := range latestSchemaStatements {
+		if err := db.Exec(statement).Error; err != nil {
+			return nil, fmt.Errorf("failed to apply latest schema change: %w", err)
+		}
+	}
+
 	// Ensure Counter Cache columns exist
 	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS replies_count BIGINT DEFAULT 0 NOT NULL").Error
 	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS upvote_count BIGINT DEFAULT 0 NOT NULL").Error

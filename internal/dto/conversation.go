@@ -30,15 +30,39 @@ type ConversationResponse struct {
 // --- Message DTOs ---
 
 type SendMessageRequest struct {
-	Text string `json:"text" binding:"required,min=1,max=5000"`
-	Body string `json:"body"` // Fallback for older clients if needed
+	Text string `json:"text" binding:"max=5000"`
+	Body string `json:"body"`
+	AttachmentPath string `json:"attachment_path"`
+	AttachmentName string `json:"attachment_name"`
+	AttachmentMimeType string `json:"attachment_mime_type"`
+	AttachmentSize int64 `json:"attachment_size"`
+	AttachmentType string `json:"attachment_type"`
+}
+
+type AttachmentUploadResponse struct {
+	Path string `json:"path"`
+	URL string `json:"url"`
+	Name string `json:"name"`
+	MimeType string `json:"mime_type"`
+	Size int64 `json:"size"`
+	Type string `json:"type"`
 }
 
 type MessageResponse struct {
-	ID     uuid.UUID `json:"id"`
-	Sender string    `json:"sender"` // "me" or "them"
-	Text   string    `json:"text"`
-	Time   time.Time `json:"time"`
+	ID uuid.UUID `json:"id"`
+	Sender string `json:"sender"`
+	Text string `json:"text"`
+	Time time.Time `json:"time"`
+	Attachment *AttachmentResponse `json:"attachment,omitempty"`
+}
+
+type AttachmentResponse struct {
+	Path string `json:"path"`
+	URL string `json:"url"`
+	Name string `json:"name"`
+	MimeType string `json:"mime_type"`
+	Size int64 `json:"size"`
+	Type string `json:"type"`
 }
 
 type CursorPaginationResponse struct {
@@ -68,8 +92,13 @@ type GroupChatResponse struct {
 }
 
 type SendGroupMessageRequest struct {
-	Text    string `json:"text"`
-	Content string `json:"content"`
+	Text               string `json:"text"`
+	Content            string `json:"content"`
+	AttachmentPath     string `json:"attachment_path"`
+	AttachmentName     string `json:"attachment_name"`
+	AttachmentMimeType string `json:"attachment_mime_type"`
+	AttachmentSize     int64  `json:"attachment_size"`
+	AttachmentType     string `json:"attachment_type"`
 }
 
 type GroupMessageResponse struct {
@@ -81,5 +110,6 @@ type GroupMessageResponse struct {
 	SenderAvatar    string     `json:"senderAvatar,omitempty"`
 	IsSystemMessage bool       `json:"isSystemMessage"`
 	Content         string     `json:"content"`
+	Attachment      *AttachmentResponse `json:"attachment,omitempty"`
 	CreatedAt       time.Time  `json:"createdAt"`
 }

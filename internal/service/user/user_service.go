@@ -166,11 +166,6 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		bio = existingUser.Bio
 	}
 
-	mission := req.Mission
-	if mission == "" {
-		mission = existingUser.Mission
-	}
-
 	avatarURL := req.AvatarURL
 	if avatarURL == "" {
 		avatarURL = existingUser.AvatarURL
@@ -189,7 +184,6 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		Expertise:   expertise,
 		Industry:    industry,
 		Bio:         bio,
-		Mission:     mission,
 		AvatarURL:   avatarURL,
 	}
 
@@ -401,7 +395,7 @@ func toUserResponse(u *model.User) *dto.UserResponse {
 		Location:    u.Location,
 		Expertise:   u.Expertise,
 		Industry:    u.Industry,
-		Mission:     u.Mission,
+		Bio:         u.Bio,
 		AvatarURL:   u.AvatarURL,
 	}
 }
