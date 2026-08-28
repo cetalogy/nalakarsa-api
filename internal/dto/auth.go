@@ -3,6 +3,8 @@ package dto
 type RegisterRequest struct {
 	Email       string  `json:"email" binding:"required,email"`
 	Password    string  `json:"password" binding:"required,min=6,max=72"`
+	SecurityQuestion string `json:"security_question" binding:"required,oneof=favorite_animal mother_name"`
+	SecurityAnswer string `json:"security_answer" binding:"required,min=2,max=100"`
 	Role        string  `json:"role" binding:"required"`
 	FirstName   string  `json:"firstName" binding:"required"`
 	MiddleName  *string `json:"middleName"`
@@ -15,7 +17,6 @@ type RegisterRequest struct {
 	Expertise   string  `json:"expertise" binding:"required"`
 	Industry    string  `json:"industry"`
 	Bio         string  `json:"bio" binding:"max=500"`
-	Mission     string  `json:"mission"`
 	AvatarURL   string  `json:"avatar_url"`
 }
 
@@ -54,6 +55,8 @@ type RefreshTokenData struct {
 
 type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
+	SecurityQuestion string `json:"security_question" binding:"required,oneof=favorite_animal mother_name"`
+	SecurityAnswer string `json:"security_answer" binding:"required,min=2,max=100"`
 }
 
 type ResetPasswordRequest struct {

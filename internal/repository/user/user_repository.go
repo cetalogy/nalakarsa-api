@@ -116,14 +116,18 @@ func (r *pgUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, 
 }
 
 func (r *pgUserRepository) UpdateProfile(u *model.User) error {
+	updates := map[string]interface{}{
+		"first_name": u.FirstName, "middle_name": u.MiddleName, "last_name": u.LastName,
+		"full_name": u.FullName, "prefix_title": u.PrefixTitle, "suffix_title": u.SuffixTitle,
+		"affiliation": u.Affiliation, "location": u.Location, "expertise": u.Expertise,
+		"industry": u.Industry, "bio": u.Bio, "avatar_url": u.AvatarURL,
+	}
+	if u.PasswordHash != "" {
+		updates["password_hash"] = u.PasswordHash
+	}
 	return r.db.Model(&model.User{}).
 		Where("id = ?", u.ID).
-		Updates(map[string]interface{}{
-			"first_name": u.FirstName, "middle_name": u.MiddleName, "last_name": u.LastName,
-			"full_name": u.FullName, "prefix_title": u.PrefixTitle, "suffix_title": u.SuffixTitle,
-			"affiliation": u.Affiliation, "location": u.Location, "expertise": u.Expertise,
-			"industry": u.Industry, "bio": u.Bio, "mission": u.Mission, "avatar_url": u.AvatarURL,
-		}).Error
+		Updates(updates).Error
 }
 
 func (r *pgUserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {

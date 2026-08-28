@@ -111,9 +111,15 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement email sending for password reset
-	// For now, return success to prevent email enumeration
-	utils.JSONResponse(c, http.StatusOK, "If the email exists, a reset link has been sent", nil, nil)
+	resetToken, err := h.authService.RequestPasswordReset(req)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusOK, "Security verification successful", gin.H{
+		"reset_token": resetToken,
+		"expires_in":  900,
+	}, nil)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
@@ -123,6 +129,9 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement token validation and password reset
-	utils.ErrorJSONResponseWithMessage(c, http.StatusNotImplemented, "Password reset not yet implemented")
+	if err := h.authService.ResetPassword(req); err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusOK, "Password reset successfully", nil, nil)
 }

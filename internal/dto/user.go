@@ -19,7 +19,7 @@ type UserResponse struct {
 	Affiliation string    `json:"affiliation"`
 	Location    string    `json:"location"`
 	Expertise   string    `json:"expertise"`
-	Mission     string    `json:"mission"`
+	Bio         string    `json:"bio"`
 	Industry    string    `json:"industry"`
 	AvatarURL   string    `json:"avatar_url"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -78,7 +78,6 @@ type UpdateProfileRequest struct {
 	Expertise   string `json:"expertise"`
 	Industry    string `json:"industry"`
 	Bio         string `json:"bio" binding:"max=500"`
-	Mission     string `json:"mission"`
 	AvatarURL   string `json:"avatar_url"`
 }
 

@@ -3,6 +3,7 @@ package conversationservice
 import (
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"strings"
 	"time"
 
@@ -23,12 +24,14 @@ type ConversationService interface {
 	ListConversations(userID uuid.UUID, page, limit int) ([]dto.ConversationResponse, int64, error)
 	ListMessages(userID uuid.UUID, conversationID uuid.UUID, limit int, cursor string) ([]dto.MessageResponse, bool, error)
 	SendMessage(userID uuid.UUID, conversationID uuid.UUID, req dto.SendMessageRequest) (*dto.MessageResponse, error)
+	UploadAttachment(userID uuid.UUID, conversationID uuid.UUID, file *multipart.FileHeader) (*dto.AttachmentUploadResponse, error)
 	MarkRead(userID uuid.UUID, conversationID uuid.UUID) error
 
 	// Group Chats (FE Contract Specification)
 	ListGroupChats(userID uuid.UUID) ([]dto.GroupChatResponse, error)
 	ListGroupMessages(userID uuid.UUID, groupChatID uuid.UUID, page, limit int) ([]dto.GroupMessageResponse, int64, error)
 	SendGroupMessage(userID uuid.UUID, groupChatID uuid.UUID, req dto.SendGroupMessageRequest) (*dto.GroupMessageResponse, error)
+	UploadGroupAttachment(userID uuid.UUID, groupChatID uuid.UUID, file *multipart.FileHeader) (*dto.AttachmentUploadResponse, error)
 
 	// Delete message (Direct & Group)
 	DeleteMessage(userID uuid.UUID, messageID uuid.UUID) error
@@ -195,6 +198,9 @@ func (s *conversationService) ListMessages(userID uuid.UUID, conversationID uuid
 			Text:   m.Body,
 			Time:   m.CreatedAt,
 		}
+		if m.AttachmentPath != "" {
+			res[i].Attachment = s.buildAttachmentResponse(m.AttachmentPath, m.AttachmentName, m.AttachmentMimeType, m.AttachmentSize, m.AttachmentType)
+		}
 	}
 
 	return res, hasMore, nil
@@ -214,11 +220,25 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 	if text == "" {
 		text = req.Body // fallback
 	}
+	if strings.TrimSpace(text) == "" && strings.TrimSpace(req.AttachmentPath) == "" {
+		return nil, errors.New("message text or attachment is required")
+	}
+	if req.AttachmentPath != "" {
+		prefix := fmt.Sprintf("conversations/%s/pending/", conversationID)
+		if !strings.HasPrefix(req.AttachmentPath, prefix) {
+			return nil, errors.New("attachment does not belong to this conversation")
+		}
+	}
 	msg := &model.Message{
 		ConversationID: conversationID,
 		SenderID:       userID,
 		Body:           text,
 		Status:         "sent",
+		AttachmentPath: req.AttachmentPath,
+		AttachmentName: req.AttachmentName,
+		AttachmentMimeType: req.AttachmentMimeType,
+		AttachmentSize: req.AttachmentSize,
+		AttachmentType: req.AttachmentType,
 	}
 
 	if err := s.convRepo.CreateMessage(msg); err != nil {
@@ -239,12 +259,53 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 		Text:   msg.Body,
 		Time:   msg.CreatedAt,
 	}
+	if msg.AttachmentPath != "" {
+		response.Attachment = s.buildAttachmentResponse(msg.AttachmentPath, msg.AttachmentName, msg.AttachmentMimeType, msg.AttachmentSize, msg.AttachmentType)
+	}
 
 	// Trigger Firebase Realtime Database push asynchronously
 	firebasePath := fmt.Sprintf("chats/direct/%s/messages", conversationID.String())
 	utils.PushToFirebaseRealtime(firebasePath, response, s.cfg)
 
 	return response, nil
+}
+
+func (s *conversationService) UploadAttachment(userID uuid.UUID, conversationID uuid.UUID, file *multipart.FileHeader) (*dto.AttachmentUploadResponse, error) {
+	member, err := s.convRepo.GetMember(conversationID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if member == nil {
+		return nil, errors.New("not a member of this conversation")
+	}
+
+	path, err := utils.UploadChatAttachment(conversationID, file, s.cfg)
+	if err != nil {
+		return nil, err
+	}
+	attachmentType := "file"
+	if strings.HasPrefix(file.Header.Get("Content-Type"), "image/") {
+		attachmentType = "image"
+	}
+	return &dto.AttachmentUploadResponse{
+		Path: path, URL: s.signedURL(path), Name: file.Filename, MimeType: file.Header.Get("Content-Type"),
+		Size: file.Size, Type: attachmentType,
+	}, nil
+}
+
+func (s *conversationService) signedURL(path string) string {
+	url, err := utils.CreateChatSignedURL(path, s.cfg)
+	if err != nil {
+		return ""
+	}
+	return url
+}
+
+func (s *conversationService) buildAttachmentResponse(path, name, mimeType string, size int64, attachmentType string) *dto.AttachmentResponse {
+	return &dto.AttachmentResponse{
+		Path: path, URL: s.signedURL(path), Name: name,
+		MimeType: mimeType, Size: size, Type: attachmentType,
+	}
 }
 
 func (s *conversationService) MarkRead(userID uuid.UUID, conversationID uuid.UUID) error {
@@ -381,6 +442,9 @@ func (s *conversationService) ListGroupMessages(userID uuid.UUID, groupChatID uu
 			Content:         m.Content,
 			CreatedAt:       m.CreatedAt,
 		}
+		if m.AttachmentPath != "" {
+			res[i].Attachment = s.buildAttachmentResponse(m.AttachmentPath, m.AttachmentName, m.AttachmentMimeType, m.AttachmentSize, m.AttachmentType)
+		}
 	}
 
 	return res, total, nil
@@ -391,7 +455,7 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 	if content == "" {
 		content = strings.TrimSpace(req.Text)
 	}
-	if content == "" {
+	if content == "" && strings.TrimSpace(req.AttachmentPath) == "" {
 		return nil, errors.New("message content is required")
 	}
 
@@ -410,6 +474,12 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 	if !isMember {
 		return nil, errors.New("unauthorized to send messages to this group chat")
 	}
+	if req.AttachmentPath != "" {
+		prefix := fmt.Sprintf("conversations/%s/pending/", gc.ID)
+		if !strings.HasPrefix(req.AttachmentPath, prefix) {
+			return nil, errors.New("attachment does not belong to this group chat")
+		}
+	}
 
 	sender, err := s.userRepo.GetByID(userID)
 	if err != nil || sender == nil {
@@ -421,6 +491,11 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 		SenderID:        &userID,
 		IsSystemMessage: false,
 		Content:         content,
+		AttachmentPath: req.AttachmentPath,
+		AttachmentName: req.AttachmentName,
+		AttachmentMimeType: req.AttachmentMimeType,
+		AttachmentSize: req.AttachmentSize,
+		AttachmentType: req.AttachmentType,
 	}
 
 	if err := s.convRepo.CreateGroupMessage(&msg); err != nil {
@@ -440,12 +515,42 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 		Content:         msg.Content,
 		CreatedAt:       msg.CreatedAt,
 	}
+	if msg.AttachmentPath != "" {
+		response.Attachment = s.buildAttachmentResponse(msg.AttachmentPath, msg.AttachmentName, msg.AttachmentMimeType, msg.AttachmentSize, msg.AttachmentType)
+	}
 
 	// Trigger Firebase Realtime Database push asynchronously
 	firebasePath := fmt.Sprintf("chats/groups/%s/messages", gc.ID.String())
 	utils.PushToFirebaseRealtime(firebasePath, response, s.cfg)
 
 	return response, nil
+}
+
+func (s *conversationService) UploadGroupAttachment(userID uuid.UUID, groupChatID uuid.UUID, file *multipart.FileHeader) (*dto.AttachmentUploadResponse, error) {
+	gc, err := s.convRepo.GetGroupChatByID(groupChatID)
+	if err != nil {
+		return nil, err
+	}
+	if gc == nil {
+		return nil, errors.New("group chat not found")
+	}
+	isMember, err := s.convRepo.IsGroupChatMember(gc.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, errors.New("unauthorized to upload attachment to this group chat")
+	}
+
+	path, err := utils.UploadChatAttachment(gc.ID, file, s.cfg)
+	if err != nil {
+		return nil, err
+	}
+	attachmentType := "file"
+	if strings.HasPrefix(file.Header.Get("Content-Type"), "image/") {
+		attachmentType = "image"
+	}
+	return &dto.AttachmentUploadResponse{Path: path, URL: s.signedURL(path), Name: file.Filename, MimeType: file.Header.Get("Content-Type"), Size: file.Size, Type: attachmentType}, nil
 }
 
 func (s *conversationService) DeleteMessage(userID uuid.UUID, messageID uuid.UUID) error {
