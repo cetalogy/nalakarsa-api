@@ -13,8 +13,8 @@ import (
 	userrepository "nalakarsa/internal/repository/user"
 	"nalakarsa/internal/utils"
 
-	"github.com/google/uuid"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type AuthService interface {
@@ -44,16 +44,6 @@ func NewAuthService(userRepo userrepository.UserRepository, cfg *config.Config) 
 func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
 	// Normalize email
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	// Validasi email resmi (tidak boleh menggunakan domain publik gratisan)
-	publicDomains := []string{
-		"gmail.com", "yahoo.com", "ymail.com", "hotmail.com",
-		"outlook.com", "live.com", "icloud.com", "aol.com", "ac.id",
-	}
-	for _, domain := range publicDomains {
-		if strings.HasSuffix(req.Email, "@"+domain) {
-			return nil, errors.New("must use an official institutional or corporate email address (gmail/yahoo are not allowed)")
-		}
-	}
 	// Check if user already exists
 	existing, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
@@ -78,24 +68,24 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 
 	// Create user model
 	u := &model.User{
-		Email:        req.Email,
-		PasswordHash: hashedPassword,
-		SecurityQuestion: req.SecurityQuestion,
+		Email:              req.Email,
+		PasswordHash:       hashedPassword,
+		SecurityQuestion:   req.SecurityQuestion,
 		SecurityAnswerHash: securityAnswerHash,
-		Role:         req.Role,
-		SystemRole:   "user",
-		Status:       "active",
-		FirstName:    req.FirstName,
-		MiddleName:   req.MiddleName,
-		LastName:     req.LastName,
-		FullName:     req.FullName,
-		PrefixTitle:  req.PrefixTitle,
-		SuffixTitle:  req.SuffixTitle,
-		Affiliation:  req.Affiliation,
-		Location:     req.Location,
-		Expertise:    req.Expertise,
-		Industry:     req.Industry,
-		Bio:          req.Bio,
+		Role:               req.Role,
+		SystemRole:         "user",
+		Status:             "active",
+		FirstName:          req.FirstName,
+		MiddleName:         req.MiddleName,
+		LastName:           req.LastName,
+		FullName:           req.FullName,
+		PrefixTitle:        req.PrefixTitle,
+		SuffixTitle:        req.SuffixTitle,
+		Affiliation:        req.Affiliation,
+		Location:           req.Location,
+		Expertise:          req.Expertise,
+		Industry:           req.Industry,
+		Bio:                req.Bio,
 	}
 
 	if err := s.userRepo.Create(u); err != nil {
