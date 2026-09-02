@@ -143,7 +143,7 @@ paths:
     post:
       tags: [Auth]
       summary: Request password reset
-      description: Memverifikasi pertanyaan keamanan lalu mengirim link reset ke email user.
+      description: Memverifikasi pertanyaan keamanan dan mengembalikan token reset sementara. Pengiriman email belum digunakan.
       requestBody:
         required: true
         content:
@@ -165,15 +165,15 @@ paths:
                   example: kucing
       responses:
         '200':
-          description: Reset link sent if account and answer are valid
+          description: Security verification successful; reset token returned
         '400':
-          description: Security answer is incorrect or email service is not configured
+          description: Security answer is incorrect or request is invalid
 
   /auth/reset-password:
     post:
       tags: [Auth]
       summary: Reset password
-      description: Mengubah password menggunakan token dari link verifikasi email.
+      description: Mengubah password menggunakan token reset dari endpoint forgot-password.
       requestBody:
         required: true
         content:
@@ -558,15 +558,90 @@ paths:
   /homepage/testimonials:
     get: { tags: [Reference], summary: Get homepage testimonials, responses: { '200': { description: Testimonials returned } } }
   /expertise/search:
-    get: { tags: [Reference], summary: Search expertise, parameters: [ { $ref: '#/components/parameters/Search' } ], responses: { '200': { description: Expertise returned } } }
+    get: { tags: [Reference], summary: Search expertise, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Expertise returned } } }
   /locations/search:
-    get: { tags: [Reference], summary: Search locations, parameters: [ { $ref: '#/components/parameters/Search' } ], responses: { '200': { description: Locations returned } } }
+    get:
+      tags: [Reference]
+      summary: Search locations
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - name: type
+          in: query
+          schema: { type: string, enum: [province, city] }
+        - $ref: '#/components/parameters/Limit'
+      responses: { '200': { description: Locations returned } }
   /locations/provinces:
-    get: { tags: [Reference], summary: Search provinces, responses: { '200': { description: Provinces returned } } }
+    get:
+      tags: [Reference]
+      summary: Search provinces
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses: { '200': { description: Provinces returned } }
   /locations/cities:
-    get: { tags: [Reference], summary: Search cities, responses: { '200': { description: Cities returned } } }
+    get:
+      tags: [Reference]
+      summary: Search cities
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - name: provinceId
+          in: query
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Limit'
+      responses: { '200': { description: Cities returned } }
   /institutions/search:
-    get: { tags: [Reference], summary: Search institutions, parameters: [ { $ref: '#/components/parameters/Search' } ], responses: { '200': { description: Institutions returned } } }
+    get: { tags: [Reference], summary: Search institutions, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Institutions returned } } }
+  /knowledge/domains/search:
+    get:
+      tags: [Reference]
+      summary: Search knowledge domains
+      description: Mengambil daftar rumpun keilmuan untuk autocomplete registrasi.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Knowledge domains returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeDomainResponse'
+  /knowledge/subdomains/search:
+    get:
+      tags: [Reference]
+      summary: Search knowledge subdomains
+      description: Mengambil sub-rumpun berdasarkan rumpun keilmuan yang dipilih.
+      parameters:
+        - $ref: '#/components/parameters/DomainID'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Knowledge subdomains returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSubdomainResponse'
+        '400':
+          description: domain_id is not a valid UUID
+  /knowledge/fields/search:
+    get:
+      tags: [Reference]
+      summary: Search knowledge fields
+      description: Mengambil bidang keilmuan berdasarkan sub-rumpun yang dipilih.
+      parameters:
+        - $ref: '#/components/parameters/SubdomainID'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Knowledge fields returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeFieldResponse'
+        '400':
+          description: subdomain_id is not a valid UUID
 
   /projects:
     get:
@@ -1032,9 +1107,20 @@ components:
       required: true
       schema: { type: string }
     Search:
-      name: search
+      name: q
       in: query
       schema: { type: string }
+      description: Kata kunci pencarian
+    DomainID:
+      name: domain_id
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
+    SubdomainID:
+      name: subdomain_id
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
     Page:
       name: page
       in: query
@@ -1167,6 +1253,41 @@ components:
                   type: string
                 avatar_url:
                   type: string
+    KnowledgeDomainResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        message: { type: string }
+    KnowledgeSubdomainResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              domain_id: { type: string, format: uuid }
+              name: { type: string }
+        message: { type: string }
+    KnowledgeFieldResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              subdomain_id: { type: string, format: uuid }
+              name: { type: string }
+        message: { type: string }
 
 
 
