@@ -99,7 +99,7 @@ func main() {
 	convRepo := conversationrepository.NewConversationRepository(db)
 	notifRepo := notificationrepository.NewNotificationRepository(db)
 	homeRepo := homerepository.NewHomepageRepository(db)
-	institutionRepo := institutionrepository.NewInstitutionRepository()
+	institutionRepo := institutionrepository.NewInstitutionRepository(db)
 	locationRepo := locationrepository.NewLocationRepository()
 
 	// Services

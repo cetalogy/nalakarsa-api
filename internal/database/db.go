@@ -80,7 +80,11 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			// Core
 			&model.User{},
 			&model.UserFollower{},
+			&model.Institution{},
 			&model.Expertise{},
+			&model.KnowledgeDomain{},
+			&model.KnowledgeSubdomain{},
+			&model.KnowledgeField{},
 
 			&model.RefreshToken{},
 
