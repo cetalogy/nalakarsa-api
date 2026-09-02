@@ -16,6 +16,7 @@ import (
 	homepagehandler "nalakarsa/internal/handler/homepage"
 	institutionhandler "nalakarsa/internal/handler/institution"
 	locationhandler "nalakarsa/internal/handler/location"
+	knowledgehandler "nalakarsa/internal/handler/knowledge"
 	notificationhandler "nalakarsa/internal/handler/notification"
 	projecthandler "nalakarsa/internal/handler/project"
 	userhandler "nalakarsa/internal/handler/user"
@@ -27,6 +28,7 @@ import (
 	homerepository "nalakarsa/internal/repository/homepage"
 	institutionrepository "nalakarsa/internal/repository/institution"
 	locationrepository "nalakarsa/internal/repository/location"
+	knowledgerepository "nalakarsa/internal/repository/knowledge"
 	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
@@ -39,6 +41,7 @@ import (
 	homepageService "nalakarsa/internal/service/homepage"
 	institutionservice "nalakarsa/internal/service/institution"
 	locationservice "nalakarsa/internal/service/location"
+	knowledgeservice "nalakarsa/internal/service/knowledge"
 	notificationservice "nalakarsa/internal/service/notification"
 	projectservice "nalakarsa/internal/service/project"
 	userservice "nalakarsa/internal/service/user"
@@ -54,6 +57,7 @@ import (
 	homeroutes "nalakarsa/internal/routes/homepage"
 	institutionroutes "nalakarsa/internal/routes/institution"
 	locationroutes "nalakarsa/internal/routes/location"
+	knowledgeroutes "nalakarsa/internal/routes/knowledge"
 	notificationroutes "nalakarsa/internal/routes/notification"
 	projectroutes "nalakarsa/internal/routes/project"
 	userroutes "nalakarsa/internal/routes/user"
@@ -101,6 +105,7 @@ func main() {
 	homeRepo := homerepository.NewHomepageRepository(db)
 	institutionRepo := institutionrepository.NewInstitutionRepository(db)
 	locationRepo := locationrepository.NewLocationRepository()
+	knowledgeRepo := knowledgerepository.NewKnowledgeRepository(db)
 
 	// Services
 	authService := authservice.NewAuthService(userRepo, cfg)
@@ -115,6 +120,7 @@ func main() {
 	homeService := homepageService.NewHomepageService(homeRepo)
 	institutionService := institutionservice.NewInstitutionService(institutionRepo)
 	locationService := locationservice.NewLocationService(locationRepo)
+	knowledgeService := knowledgeservice.NewKnowledgeService(knowledgeRepo)
 
 	// Handlers
 	authHandler := authhandler.NewAuthHandler(authService)
@@ -129,6 +135,7 @@ func main() {
 	homeHandler := homepagehandler.NewHomepageHandler(homeService)
 	institutionHandler := institutionhandler.NewInstitutionHandler(institutionService)
 	locationHandler := locationhandler.NewLocationHandler(locationService)
+	knowledgeHandler := knowledgehandler.NewKnowledgeHandler(knowledgeService)
 
 	// 5. Setup Routes
 	r := routes.NewRouter(cfg)
@@ -144,6 +151,7 @@ func main() {
 	projectroutes.RegisterRoutes(v1, protected, projHandler)
 	institutionroutes.RegisterRoutes(v1, institutionHandler)
 	locationroutes.RegisterRoutes(v1, locationHandler)
+	knowledgeroutes.RegisterRoutes(v1, knowledgeHandler)
 	conversationroutes.RegisterRoutes(protected, convHandler)
 	notificationroutes.RegisterRoutes(protected, notifHandler)
 	dashboardroutes.RegisterRoutes(protected, dashHandler)
