@@ -35,12 +35,12 @@ func (r *institutionRepository) Search(search string, limit int) ([]model.Instit
 		limit = 10
 	}
 	search = strings.TrimSpace(search)
-	if search == "" {
-		return []model.Institution{}, nil
-	}
 
 	var result []model.Institution
-	err := r.db.Where("is_active = ? AND name ILIKE ?", true, "%"+search+"%").
-		Order("name ASC").Limit(limit).Find(&result).Error
+	query := r.db.Where("is_active = ?", true)
+	if search != "" {
+		query = query.Where("name ILIKE ?", "%"+search+"%")
+	}
+	err := query.Order("name ASC").Limit(limit).Find(&result).Error
 	return result, err
 }
