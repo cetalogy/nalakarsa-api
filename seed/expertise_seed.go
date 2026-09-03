@@ -30,7 +30,7 @@ func SeedExpertise(db *gorm.DB) error {
 		{Name: "Arts and Design", Category: "Arts"},
 	}
 	for _, item := range items {
-		if err := db.Where("category = ? AND name = ? AND specification = ?", item.Category, item.Name, item.Specification).FirstOrCreate(&item).Error; err != nil {
+		if err := db.Where("name = ?", item.Name).FirstOrCreate(&item).Error; err != nil {
 			return err
 		}
 	}
