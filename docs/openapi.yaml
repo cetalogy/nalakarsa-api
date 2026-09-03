@@ -634,9 +634,8 @@ paths:
     get:
       tags: [Reference]
       summary: Search knowledge fields
-      description: Mengambil bidang keilmuan berdasarkan sub-rumpun yang dipilih.
+      description: Mencari bidang keilmuan secara langsung.
       parameters:
-        - $ref: '#/components/parameters/SubdomainID'
         - $ref: '#/components/parameters/Search'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -646,8 +645,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KnowledgeFieldResponse'
-        '400':
-          description: subdomain_id is not a valid UUID
 
   /projects:
     get:
