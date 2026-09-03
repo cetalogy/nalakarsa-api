@@ -43,12 +43,9 @@ var (
 func loadServiceAccount() {
 	var data []byte
 	var err error
-
-	// Check environment variable first (useful for Railway / Production)
 	if envJSON := os.Getenv("FIREBASE_SERVICE_ACCOUNT_JSON"); strings.TrimSpace(envJSON) != "" {
 		data = []byte(envJSON)
 	} else {
-		// Fallback to local file
 		filePath := "serviceAccountKey.json"
 		data, err = os.ReadFile(filePath)
 		if err != nil {
@@ -101,8 +98,6 @@ func getFirebaseAccessToken() (string, error) {
 
 	globalAuth.mu.Lock()
 	defer globalAuth.mu.Unlock()
-
-	// Double check after lock
 	if globalAuth.accessToken != "" && time.Now().Before(globalAuth.expiresAt.Add(-2*time.Minute)) {
 		return globalAuth.accessToken, nil
 	}
@@ -159,8 +154,6 @@ func getFirebaseAccessToken() (string, error) {
 	globalAuth.expiresAt = time.Now().Add(time.Duration(res.ExpiresIn) * time.Second)
 	return res.AccessToken, nil
 }
-
-// PushToFirebaseRealtime pushes message data asynchronously to Firebase Realtime Database
 func PushToFirebaseRealtime(path string, payload interface{}, cfg *config.Config) {
 	go func() {
 		saOnce.Do(loadServiceAccount)
@@ -169,7 +162,6 @@ func PushToFirebaseRealtime(path string, payload interface{}, cfg *config.Config
 		if cfg != nil && cfg.FirebaseDatabaseURL != "" {
 			baseURL = cfg.FirebaseDatabaseURL
 		} else if saData != nil && saData.ProjectID != "" {
-			// Default URL based on project ID (asia-southeast1 or us-central)
 			baseURL = fmt.Sprintf("https://%s-default-rtdb.asia-southeast1.firebasedatabase.app", saData.ProjectID)
 		}
 
@@ -198,8 +190,6 @@ func PushToFirebaseRealtime(path string, payload interface{}, cfg *config.Config
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		// Attach OAuth2 Bearer Token if available from Service Account
 		accessToken, tokenErr := getFirebaseAccessToken()
 		if tokenErr == nil && accessToken != "" && (cfg == nil || cfg.FirebaseDatabaseSecret == "") {
 			req.Header.Set("Authorization", "Bearer "+accessToken)

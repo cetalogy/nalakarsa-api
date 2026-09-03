@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	projectcommon "nalakarsa/internal/common/project"
+	"nalakarsa/internal/common/constant"
 	"nalakarsa/internal/model"
 
 	"github.com/google/uuid"
@@ -21,26 +21,18 @@ type ProjectRepository interface {
 	Delete(id uuid.UUID) error
 	CountByOwner(ownerID uuid.UUID, status string) (int64, error)
 	ListByUser(userID uuid.UUID) ([]model.Project, error)
-
-	// Applications
 	CreateApplication(app *model.ProjectApplication) error
 	GetApplicationByID(id uuid.UUID) (*model.ProjectApplication, error)
 	ListApplications(projectID uuid.UUID) ([]model.ProjectApplication, error)
 	UpdateApplication(app *model.ProjectApplication) error
-
-	// Members
 	AddMember(member *model.ProjectMember) error
 	ListMembers(projectID uuid.UUID) ([]model.ProjectMember, error)
 	GetMember(projectID, userID uuid.UUID) (*model.ProjectMember, error)
-
-	// Milestones
 	CreateMilestone(milestone *model.ProjectMilestone) error
 	GetMilestoneByID(id uuid.UUID) (*model.ProjectMilestone, error)
 	UpdateMilestone(milestone *model.ProjectMilestone) error
 	ListMilestones(projectID uuid.UUID) ([]model.ProjectMilestone, error)
 	GetNextMilestone(projectID uuid.UUID) (*model.ProjectMilestone, error)
-
-	// Collaboration Requests (FE Contract)
 	CreateCollabRequest(req *model.CollaborationRequest) error
 	GetCollabRequestByID(id uuid.UUID) (*model.CollaborationRequest, error)
 	ListCollabRequestsForUser(userID uuid.UUID) ([]model.CollaborationRequest, error)
@@ -132,8 +124,6 @@ func (r *pgProjectRepository) ListByUser(userID uuid.UUID) ([]model.Project, err
 	return projects, err
 }
 
-// --- Applications ---
-
 func (r *pgProjectRepository) CreateApplication(app *model.ProjectApplication) error {
 	return r.db.Create(app).Error
 }
@@ -162,8 +152,6 @@ func (r *pgProjectRepository) UpdateApplication(app *model.ProjectApplication) e
 	return r.db.Save(app).Error
 }
 
-// --- Members ---
-
 func (r *pgProjectRepository) AddMember(member *model.ProjectMember) error {
 	return r.db.Create(member).Error
 }
@@ -187,8 +175,6 @@ func (r *pgProjectRepository) GetMember(projectID, userID uuid.UUID) (*model.Pro
 	}
 	return &member, nil
 }
-
-// --- Milestones ---
 
 func (r *pgProjectRepository) CreateMilestone(milestone *model.ProjectMilestone) error {
 	return r.db.Create(milestone).Error
@@ -266,8 +252,6 @@ func (r *pgProjectRepository) HasPendingCollabRequest(applicantID uuid.UUID, dis
 
 func (r *pgProjectRepository) ListCollabRequestsForUser(userID uuid.UUID) ([]model.CollaborationRequest, error) {
 	var requests []model.CollaborationRequest
-
-	// Fetch requests where the user is either the applicant OR the initiator/owner of the target discussion or project
 	err := r.db.Preload("Applicant").
 		Preload("Discussion").
 		Preload("Project").
@@ -292,8 +276,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 	if collabReq.Status != "PENDING" {
 		return nil, nil, nil, errors.New("collaboration request has already been processed")
 	}
-
-	// Verify initiator authorization
 	var isAuthorized bool
 	if collabReq.DiscussionID != nil {
 		var disc model.Discussion
@@ -318,16 +300,11 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 
 	var targetProject model.Project
 	var targetGroupChat model.GroupChat
-
-	// ATOMIC TRANSACTION WORKFLOW
 	err := r.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Update collaboration_requests status -> ACCEPTED
-		collabReq.Status = projectcommon.CollabStatusAccepted
+		collabReq.Status = constant.CollabStatusAccepted
 		if err := tx.Save(&collabReq).Error; err != nil {
 			return err
 		}
-
-		// 2. Update discussions is_in_collaboration -> TRUE
 		if collabReq.DiscussionID != nil {
 			if err := tx.Model(&model.Discussion{}).
 				Where("id = ?", *collabReq.DiscussionID).
@@ -335,8 +312,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				return err
 			}
 		}
-
-		// 3. Find or Create Project with status 'Mitra Terkonfirmasi'
 		var proj model.Project
 		var projectFound bool
 
@@ -356,7 +331,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				return err
 			}
 		} else {
-			// Create new project based on discussion
 			var disc model.Discussion
 			if collabReq.DiscussionID != nil {
 				_ = tx.Where("id = ?", *collabReq.DiscussionID).First(&disc)
@@ -384,16 +358,11 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				return err
 			}
 		}
-
-		// Link project ID to collaboration request if not set
 		if collabReq.ProjectID == nil {
 			collabReq.ProjectID = &proj.ID
 			tx.Model(&model.CollaborationRequest{}).Where("id = ?", collabReq.ID).Update("project_id", proj.ID)
 		}
 		targetProject = proj
-
-		// Add project members
-		// Initiator as leader/owner
 		var memberInitiator model.ProjectMember
 		if err := tx.Where("project_id = ? AND user_id = ?", proj.ID, initiatorID).First(&memberInitiator).Error; err != nil {
 			tx.Create(&model.ProjectMember{
@@ -403,7 +372,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				Status:    "active",
 			})
 		}
-		// Applicant as confirmed partner
 		var memberApplicant model.ProjectMember
 		if err := tx.Where("project_id = ? AND user_id = ?", proj.ID, collabReq.ApplicantID).First(&memberApplicant).Error; err != nil {
 			tx.Create(&model.ProjectMember{
@@ -413,8 +381,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				Status:    "active",
 			})
 		}
-
-		// 4. Find or Create Group Chat for Project / Topic
 		var groupChat model.GroupChat
 		var groupChatFound bool
 
@@ -460,8 +426,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 			tx.Save(&groupChat)
 		}
 		targetGroupChat = groupChat
-
-		// Add Group Chat Members
 		var gmInitiator model.GroupChatMember
 		if err := tx.Where("group_chat_id = ? AND user_id = ?", groupChat.ID, initiatorID).First(&gmInitiator).Error; err != nil {
 			tx.Create(&model.GroupChatMember{
@@ -479,8 +443,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 				Role:        "Collaboration Partner",
 			})
 		}
-
-		// Add initial welcome system message in group_messages
 		sysMessage := model.GroupMessage{
 			GroupChatID:     groupChat.ID,
 			SenderID:        nil,
@@ -490,8 +452,6 @@ func (r *pgProjectRepository) ApproveCollabRequest(requestID, initiatorID uuid.U
 		if err := tx.Create(&sysMessage).Error; err != nil {
 			return err
 		}
-
-		// 5. Send Notification to Applicant
 		notif := model.Notification{
 			UserID:       collabReq.ApplicantID,
 			Type:         "collaboration",
@@ -526,8 +486,6 @@ func (r *pgProjectRepository) RejectCollabRequest(requestID, initiatorID uuid.UU
 	if collabReq.Status != "PENDING" {
 		return nil, errors.New("collaboration request has already been processed")
 	}
-
-	// Verify initiator authorization
 	var isAuthorized bool
 	if collabReq.DiscussionID != nil {
 		var disc model.Discussion
@@ -551,13 +509,10 @@ func (r *pgProjectRepository) RejectCollabRequest(requestID, initiatorID uuid.UU
 	}
 
 	err := r.db.Transaction(func(tx *gorm.DB) error {
-		collabReq.Status = projectcommon.CollabStatusRejected
-		//collabReq.RejectionReason = &reason
+		collabReq.Status = constant.CollabStatusRejected
 		if err := tx.Save(&collabReq).Error; err != nil {
 			return err
 		}
-
-		// Insert notification to applicant
 		notif := model.Notification{
 			UserID:       collabReq.ApplicantID,
 			Type:         "collaboration",
@@ -587,12 +542,12 @@ func (r *pgProjectRepository) WithdrawCollabRequest(requestID, applicantID uuid.
 	if request.ApplicantID != applicantID {
 		return errors.New("only the applicant can withdraw this collaboration request")
 	}
-	if request.Status != projectcommon.CollabStatusPending && request.Status != projectcommon.CollabStatusAccepted {
+	if request.Status != constant.CollabStatusPending && request.Status != constant.CollabStatusAccepted {
 		return errors.New("collaboration request cannot be withdrawn")
 	}
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		request.Status = projectcommon.CollabStatusCancelled
+		request.Status = constant.CollabStatusCancelled
 		if err := tx.Save(&request).Error; err != nil {
 			return err
 		}

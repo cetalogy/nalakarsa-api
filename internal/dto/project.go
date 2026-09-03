@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// --- Project DTOs (replaces Collaboration) ---
-
 type CreateProjectRequest struct {
 	Title         string     `json:"title" binding:"required,min=1"`
 	Description   string     `json:"description" binding:"required,min=1"`
@@ -56,8 +54,6 @@ type ProjectDetailResponse struct {
 	Milestones []ProjectMilestoneResponse `json:"milestones"`
 }
 
-// --- Project Application ---
-
 type ApplyProjectRequest struct {
 	Message string `json:"message" binding:"required,min=1"`
 }
@@ -82,8 +78,6 @@ type ProjectApplicationResponse struct {
 type UpdateApplicationStatusRequest struct {
 	Status string `json:"status" binding:"required,oneof=accepted rejected"`
 }
-
-// --- Collaboration Request DTOs (FE Contract Specification) ---
 
 type SubmitCollaborationRequest struct {
 	DiscussionID         *uuid.UUID `json:"discussionId"`
@@ -117,17 +111,10 @@ type ApproveCollaborationResponse struct {
 	GroupChatID uuid.UUID  `json:"groupChatId"`
 }
 
-// type RejectCollaborationRequest struct {
-// 	Reason string `json:"reason" binding:"required,min=1"`
-// }
-
 type RejectCollaborationResponse struct {
 	RequestID uuid.UUID `json:"requestId"`
 	Status    string    `json:"status"`
-	// Reason    string    `json:"reason,omitempty"`
 }
-
-// --- Project Member ---
 
 type ProjectMemberResponse struct {
 	ID        uuid.UUID `json:"id"`
@@ -138,8 +125,6 @@ type ProjectMemberResponse struct {
 	JoinedAt  time.Time `json:"joined_at"`
 	AvatarURL string    `json:"avatar_url"`
 }
-
-// --- Project Milestone ---
 
 type CreateMilestoneRequest struct {
 	Title      string     `json:"title" binding:"required"`

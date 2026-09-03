@@ -16,7 +16,19 @@ type ExpertiseHandler struct {
 	service expertiseservice.ExpertiseService
 }
 
-func (h *ExpertiseHandler) Create(c *gin.Context) { var req dto.CreateReferenceRequest; if err := c.ShouldBindJSON(&req); err != nil { utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "name is required"); return }; item, err := h.service.Create(req.Name); if err != nil { utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error()); return }; utils.JSONResponse(c, http.StatusCreated, "Expertise created successfully", item, nil) }
+func (h *ExpertiseHandler) Create(c *gin.Context) {
+	var req dto.CreateReferenceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "name is required")
+		return
+	}
+	item, err := h.service.Create(req.Name)
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusCreated, "Expertise created successfully", item, nil)
+}
 
 func NewExpertiseHandler(service expertiseservice.ExpertiseService) *ExpertiseHandler {
 	return &ExpertiseHandler{service: service}

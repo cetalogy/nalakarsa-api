@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// --- Conversation DTOs ---
-
 type CreateDirectConversationRequest struct {
 	TargetUserID string `json:"target_user_id" binding:"required"`
 }
@@ -27,50 +25,46 @@ type ConversationResponse struct {
 	LastMessagePreview string    `json:"last_message_preview,omitempty"`
 }
 
-// --- Message DTOs ---
-
 type SendMessageRequest struct {
-	Text string `json:"text" binding:"max=5000"`
-	Body string `json:"body"`
-	AttachmentPath string `json:"attachment_path"`
-	AttachmentName string `json:"attachment_name"`
+	Text               string `json:"text" binding:"max=5000"`
+	Body               string `json:"body"`
+	AttachmentPath     string `json:"attachment_path"`
+	AttachmentName     string `json:"attachment_name"`
 	AttachmentMimeType string `json:"attachment_mime_type"`
-	AttachmentSize int64 `json:"attachment_size"`
-	AttachmentType string `json:"attachment_type"`
+	AttachmentSize     int64  `json:"attachment_size"`
+	AttachmentType     string `json:"attachment_type"`
 }
 
 type AttachmentUploadResponse struct {
-	Path string `json:"path"`
-	URL string `json:"url"`
-	Name string `json:"name"`
+	Path     string `json:"path"`
+	URL      string `json:"url"`
+	Name     string `json:"name"`
 	MimeType string `json:"mime_type"`
-	Size int64 `json:"size"`
-	Type string `json:"type"`
+	Size     int64  `json:"size"`
+	Type     string `json:"type"`
 }
 
 type MessageResponse struct {
-	ID uuid.UUID `json:"id"`
-	Sender string `json:"sender"`
-	Text string `json:"text"`
-	Time time.Time `json:"time"`
+	ID         uuid.UUID           `json:"id"`
+	Sender     string              `json:"sender"`
+	Text       string              `json:"text"`
+	Time       time.Time           `json:"time"`
 	Attachment *AttachmentResponse `json:"attachment,omitempty"`
 }
 
 type AttachmentResponse struct {
-	Path string `json:"path"`
-	URL string `json:"url"`
-	Name string `json:"name"`
+	Path     string `json:"path"`
+	URL      string `json:"url"`
+	Name     string `json:"name"`
 	MimeType string `json:"mime_type"`
-	Size int64 `json:"size"`
-	Type string `json:"type"`
+	Size     int64  `json:"size"`
+	Type     string `json:"type"`
 }
 
 type CursorPaginationResponse struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 	HasMore    bool   `json:"has_more"`
 }
-
-// --- Group Chat DTOs (FE Contract Specification) ---
 
 type GroupChatMemberResponse struct {
 	ID        uuid.UUID `json:"id"`
@@ -102,14 +96,14 @@ type SendGroupMessageRequest struct {
 }
 
 type GroupMessageResponse struct {
-	ID              uuid.UUID  `json:"id"`
-	GroupChatID     uuid.UUID  `json:"groupChatId"`
-	SenderID        *uuid.UUID `json:"senderId,omitempty"`
-	SenderName      string     `json:"senderName,omitempty"`
-	SenderRole      string     `json:"senderRole,omitempty"`
-	SenderAvatar    string     `json:"senderAvatar,omitempty"`
-	IsSystemMessage bool       `json:"isSystemMessage"`
-	Content         string     `json:"content"`
+	ID              uuid.UUID           `json:"id"`
+	GroupChatID     uuid.UUID           `json:"groupChatId"`
+	SenderID        *uuid.UUID          `json:"senderId,omitempty"`
+	SenderName      string              `json:"senderName,omitempty"`
+	SenderRole      string              `json:"senderRole,omitempty"`
+	SenderAvatar    string              `json:"senderAvatar,omitempty"`
+	IsSystemMessage bool                `json:"isSystemMessage"`
+	Content         string              `json:"content"`
 	Attachment      *AttachmentResponse `json:"attachment,omitempty"`
-	CreatedAt       time.Time  `json:"createdAt"`
+	CreatedAt       time.Time           `json:"createdAt"`
 }

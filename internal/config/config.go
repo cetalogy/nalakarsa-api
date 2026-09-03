@@ -41,7 +41,6 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	// Memuat file .env (untuk dev lokal)
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: No .env file found, reading from system environment variables.")
 	}
@@ -73,23 +72,17 @@ func LoadConfig() *Config {
 		SMTPUsername:            getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:            getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:                getEnv("SMTP_FROM", ""),
-
-		// variabel rahasia (wajib diisi dari .env)
 		DBPassword:       getEnvRequired("DB_PASSWORD"),
 		JWTSecret:        getEnvRequired("JWT_SECRET"),
 		JWTRefreshSecret: getEnvRequired("JWT_REFRESH_SECRET"),
 	}
 }
-
-// fungsi untuk variabel opsional
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
 	return defaultValue
 }
-
-// fungsi untuk variabel wajib
 func getEnvRequired(key string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists || value == "" {
@@ -97,8 +90,6 @@ func getEnvRequired(key string) string {
 	}
 	return value
 }
-
-// Fungsi untuk Konversi Integer
 func getEnvAsInt(key string, defaultValue int) int {
 	valueStr := getEnv(key, "")
 	if value, err := strconv.Atoi(valueStr); err == nil {
@@ -106,8 +97,6 @@ func getEnvAsInt(key string, defaultValue int) int {
 	}
 	return defaultValue
 }
-
-// Fungsi untuk Konversi Boolean
 func getEnvAsBool(key string, defaultValue bool) bool {
 	valueStr := getEnv(key, "")
 	if value, err := strconv.ParseBool(valueStr); err == nil {

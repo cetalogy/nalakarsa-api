@@ -3,8 +3,7 @@ package seed
 import (
 	"log"
 
-	projectcommon "nalakarsa/internal/common/project"
-	usercommon "nalakarsa/internal/common/user"
+	"nalakarsa/internal/common/constant"
 	"nalakarsa/internal/model"
 	"nalakarsa/internal/utils"
 
@@ -13,8 +12,6 @@ import (
 
 func SeedData(db *gorm.DB) error {
 	log.Println("Seeding database with default mock data...")
-
-	// 1. Clear existing data
 	log.Println("Purging existing data...")
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageSection{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageHero{})
@@ -35,14 +32,12 @@ func SeedData(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-
-	// 2. Create Users & Profiles
 	akademisiUser := &model.User{
 		Email:        "dosen@nalakarsa.id",
 		PasswordHash: hashedPassword,
-		Role:         usercommon.RoleAkademisi,
-		SystemRole:   usercommon.SystemRoleUser,
-		Status:       usercommon.StatusActive,
+		Role:         constant.RoleAkademisi,
+		SystemRole:   constant.SystemRoleUser,
+		Status:       constant.StatusActive,
 		FirstName:    "Budi",
 		LastName:     "Santoso",
 		FullName:     "Dr. Ir. Budi Santoso",
@@ -59,9 +54,9 @@ func SeedData(db *gorm.DB) error {
 	praktisiUser := &model.User{
 		Email:        "pengusaha@nalakarsa.id",
 		PasswordHash: hashedPassword,
-		Role:         usercommon.RolePraktisi,
-		SystemRole:   usercommon.SystemRoleUser,
-		Status:       usercommon.StatusActive,
+		Role:         constant.RolePraktisi,
+		SystemRole:   constant.SystemRoleUser,
+		Status:       constant.StatusActive,
 		FirstName:    "Setyo",
 		LastName:     "Nugroho",
 		FullName:     "Setyo Nugroho",
@@ -78,9 +73,9 @@ func SeedData(db *gorm.DB) error {
 	profesionalUser := &model.User{
 		Email:        "engineer@nalakarsa.id",
 		PasswordHash: hashedPassword,
-		Role:         usercommon.RoleProfesional,
-		SystemRole:   usercommon.SystemRoleUser,
-		Status:       usercommon.StatusActive,
+		Role:         constant.RoleProfesional,
+		SystemRole:   constant.SystemRoleUser,
+		Status:       constant.StatusActive,
 		FirstName:    "Hendra",
 		LastName:     "Wijaya",
 		FullName:     "Hendra Wijaya",
@@ -103,8 +98,6 @@ func SeedData(db *gorm.DB) error {
 	if err := db.Create(profesionalUser).Error; err != nil {
 		return err
 	}
-
-	// 3. Create Discussion Topics
 	disc1 := &model.Discussion{
 		UserID:      profesionalUser.ID,
 		Title:       "Mengapa Golang Sangat Cocok untuk Microservices?",
@@ -129,8 +122,6 @@ func SeedData(db *gorm.DB) error {
 	if err := db.Create(disc2).Error; err != nil {
 		return err
 	}
-
-	// 4. Create Discussion Replies
 	reply1 := &model.DiscussionReply{
 		DiscussionID: disc1.ID,
 		UserID:       akademisiUser.ID,
@@ -149,15 +140,13 @@ func SeedData(db *gorm.DB) error {
 	if err := db.Create(reply2).Error; err != nil {
 		return err
 	}
-
-	// 5. Create Projects (Replacing Collaboration)
 	proj := &model.Project{
 		OwnerID:       akademisiUser.ID,
 		Title:         "Pengembangan Lapangan Sistem IoT Monitoring Tanah Pertanian",
 		Description:   "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
 		Category:      "Research",
-		Needs:         usercommon.RolePraktisi,
-		Status:        projectcommon.ProjectStatusOpen,
+		Needs:         constant.RolePraktisi,
+		Status:        constant.ProjectStatusOpen,
 		FundingStatus: "Self-funded",
 		Location:      "Bogor",
 	}
@@ -165,20 +154,16 @@ func SeedData(db *gorm.DB) error {
 	if err := db.Create(proj).Error; err != nil {
 		return err
 	}
-
-	// 6. Create Application
 	app := &model.ProjectApplication{
 		ProjectID:   proj.ID,
 		ApplicantID: praktisiUser.ID,
 		Message:     "Halo Pak Budi, saya Hendra dari PT Tani Maju Digital. Kami memiliki perkebunan teh seluas 3 hektar di daerah Bogor dan sangat tertarik untuk dijadikan lahan riset implementasi alat ini.",
-		Status:      projectcommon.ApplicationStatusPending,
+		Status:      constant.ApplicationStatusPending,
 	}
 
 	if err := db.Create(app).Error; err != nil {
 		return err
 	}
-
-	// 7. Seed Homepage landing content
 	hero := &model.HomepageHero{
 		Headline:     "Kolaborasi Riset jadi Solusi Nyata",
 		SubHeadline:  "Temukan akademisi, praktisi, dan profesional untuk mendorong riset yang berdampak.",

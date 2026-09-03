@@ -14,24 +14,16 @@ type ConversationRepository interface {
 	GetByID(id uuid.UUID) (*model.Conversation, error)
 	GetDirectByPair(userA, userB uuid.UUID) (*model.Conversation, error)
 	ListByUser(userID uuid.UUID, page, limit int) ([]model.Conversation, int64, error)
-
-	// Members
 	AddMember(member *model.ConversationMember) error
 	GetMember(conversationID, userID uuid.UUID) (*model.ConversationMember, error)
 	UpdateLastRead(conversationID, userID, messageID uuid.UUID) error
-
-	// Messages
 	CreateMessage(msg *model.Message) error
 	GetMessageByID(id uuid.UUID) (*model.Message, error)
 	DeleteMessage(id uuid.UUID) error
 	ListMessages(conversationID uuid.UUID, limit int, cursor string) ([]model.Message, error)
 	CountUnread(conversationID, userID uuid.UUID) (int64, error)
 	CountTotalUnread(userID uuid.UUID) (int64, error)
-
-	// Update conversation
 	UpdateLastMessageAt(conversationID uuid.UUID) error
-
-	// Group Chats (FE Contract Specification)
 	ListGroupChatsByUser(userID uuid.UUID) ([]model.GroupChat, error)
 	GetGroupChatByID(id uuid.UUID) (*model.GroupChat, error)
 	IsGroupChatMember(groupChatID, userID uuid.UUID) (bool, error)
@@ -103,8 +95,6 @@ func (r *pgConversationRepository) ListByUser(userID uuid.UUID, page, limit int)
 	return convs, total, err
 }
 
-// --- Members ---
-
 func (r *pgConversationRepository) AddMember(member *model.ConversationMember) error {
 	return r.db.Create(member).Error
 }
@@ -127,8 +117,6 @@ func (r *pgConversationRepository) UpdateLastRead(conversationID, userID, messag
 		Update("last_read_message_id", messageID).Error
 }
 
-// --- Messages ---
-
 func (r *pgConversationRepository) CreateMessage(msg *model.Message) error {
 	return r.db.Create(msg).Error
 }
@@ -141,7 +129,6 @@ func (r *pgConversationRepository) ListMessages(conversationID uuid.UUID, limit 
 	if cursor != "" {
 		cursorID, err := uuid.Parse(cursor)
 		if err == nil {
-			// Get the created_at of the cursor message
 			var cursorMsg model.Message
 			if err := r.db.Select("created_at").Where("id = ?", cursorID).First(&cursorMsg).Error; err == nil {
 				query = query.Where("messages.created_at < ?", cursorMsg.CreatedAt)
@@ -220,7 +207,6 @@ func (r *pgConversationRepository) GetGroupChatByID(id uuid.UUID) (*model.GroupC
 }
 
 func (r *pgConversationRepository) IsGroupChatMember(groupChatID, userID uuid.UUID) (bool, error) {
-	// First resolve the real groupChat.ID in case groupChatID was a topic_id or project_id
 	gc, err := r.GetGroupChatByID(groupChatID)
 	if err != nil || gc == nil {
 		return false, err

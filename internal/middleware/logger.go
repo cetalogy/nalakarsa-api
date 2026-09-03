@@ -45,8 +45,6 @@ func LoggerMiddleware(cfg *config.Config) gin.HandlerFunc {
 			statusText = "Unknown Status"
 		}
 		statusLabel := colorStatus(statusCode, isDevelopment) + " " + statusText
-
-		// Inject User information if authenticated
 		userInfo := ""
 		if email, exists := c.Get("email"); exists {
 			userInfo = fmt.Sprintf(" | User: %v", email)
@@ -75,7 +73,6 @@ func resolveTransactionName(method, path string) string {
 	}
 
 	switch {
-	// Auth Module
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/login"):
 		return "[USER LOGIN]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/register"):
@@ -84,8 +81,6 @@ func resolveTransactionName(method, path string) string {
 		return "[REFRESH TOKEN]"
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/auth/me"):
 		return "[GET CURRENT USER]"
-
-	// Discussion Module
 	case method == "POST" && strings.Contains(cleanPath, "/collaboration"):
 		return "[MARK COLLABORATION]"
 	case method == "POST" && strings.Contains(cleanPath, "/votes"):
@@ -108,14 +103,10 @@ func resolveTransactionName(method, path string) string {
 		return "[LIST DISCUSSIONS]"
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/discussions/"):
 		return "[GET DISCUSSION DETAIL]"
-
-	// Project Module
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/projects"):
 		return "[PROJECT SERVICE]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/projects"):
 		return "[CREATE PROJECT]"
-
-	// User / Connection / Conversation / Notification / Homepage
 	case strings.HasPrefix(cleanPath, "/api/v1/users"):
 		return "[USER PROFILE]"
 	case strings.HasPrefix(cleanPath, "/api/v1/connections"):
@@ -126,8 +117,6 @@ func resolveTransactionName(method, path string) string {
 		return "[NOTIFICATION SERVICE]"
 	case strings.HasPrefix(cleanPath, "/api/v1/homepage"):
 		return "[HOMEPAGE LANDING]"
-
-	// Health check
 	case cleanPath == "/" || cleanPath == "/health":
 		return "[HEALTH CHECK]"
 

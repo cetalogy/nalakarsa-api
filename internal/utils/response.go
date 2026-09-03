@@ -14,8 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
-
-// JSONResponse sends a successful JSON response using the standard envelope
 func JSONResponse(c *gin.Context, statusCode int, message string, data interface{}, pagination *dto.PaginationResponse) {
 	c.JSON(statusCode, dto.APIResponse{
 		Data:      data,
@@ -24,8 +22,6 @@ func JSONResponse(c *gin.Context, statusCode int, message string, data interface
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
 }
-
-// ErrorJSONResponse sends an error JSON response with error code, message, timestamp, and details
 func ErrorJSONResponse(c *gin.Context, statusCode int, code string, message string, details map[string]string) {
 	c.JSON(statusCode, dto.APIErrorResponse{
 		Error: dto.APIErrorDetail{
@@ -36,8 +32,6 @@ func ErrorJSONResponse(c *gin.Context, statusCode int, code string, message stri
 		},
 	})
 }
-
-// ErrorJSONResponseWithMessage sends a rich error response with error code, message, and contextual details
 func ErrorJSONResponseWithMessage(c *gin.Context, statusCode int, message string) {
 	code := "INTERNAL_ERROR"
 	details := make(map[string]string)
@@ -80,9 +74,6 @@ func ErrorJSONResponseWithMessage(c *gin.Context, statusCode int, message string
 
 	ErrorJSONResponse(c, statusCode, code, message, details)
 }
-
-// ValidationErrorResponse sends a validation error response with per-field details.
-// Accepts either an error (parsed into field details) or a map[string]string.
 func ValidationErrorResponse(c *gin.Context, input interface{}) {
 	var details map[string]string
 	switch v := input.(type) {
@@ -93,28 +84,20 @@ func ValidationErrorResponse(c *gin.Context, input interface{}) {
 	}
 	ErrorJSONResponse(c, 400, "VALIDATION_ERROR", "Validation failed", details)
 }
-
-// FormatBindingError extracts per-field validation error messages or friendly JSON parsing error messages
 func FormatBindingError(err error) map[string]string {
 	details := make(map[string]string)
 	if err == nil {
 		return details
 	}
-
-	// Handle empty body (EOF)
 	if errors.Is(err, io.EOF) || err.Error() == "EOF" {
 		details["body"] = "Request body cannot be empty. Please provide a valid JSON payload."
 		return details
 	}
-
-	// Handle JSON syntax error
 	var syntaxErr *json.SyntaxError
 	if errors.As(err, &syntaxErr) {
 		details["body"] = fmt.Sprintf("Malformed JSON syntax at offset %d", syntaxErr.Offset)
 		return details
 	}
-
-	// Handle data type mismatch in JSON payload
 	var unmarshalErr *json.UnmarshalTypeError
 	if errors.As(err, &unmarshalErr) {
 		fieldName := strings.ToLower(unmarshalErr.Field)
@@ -124,8 +107,6 @@ func FormatBindingError(err error) map[string]string {
 		details[fieldName] = fmt.Sprintf("Expected %s type, but received %s", unmarshalErr.Type.String(), unmarshalErr.Value)
 		return details
 	}
-
-	// Handle validator rules (required, min, max, email, etc.)
 	if ve, ok := err.(validator.ValidationErrors); ok {
 		for _, fe := range ve {
 			field := strings.ToLower(fe.Field())
@@ -146,13 +127,9 @@ func FormatBindingError(err error) map[string]string {
 		}
 		return details
 	}
-
-	// Fallback for non-validator parsing errors
 	details["body"] = fmt.Sprintf("Invalid request payload: %s", err.Error())
 	return details
 }
-
-// ParsePaginationRequest helper to parse page and limit queries
 func ParsePaginationRequest(c *gin.Context) (int, int) {
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")

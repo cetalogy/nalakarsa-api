@@ -16,7 +16,5 @@ type DiscussionReply struct {
 	CreatedAt    time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_replies_discussion_created,priority:2"`
 	UpdatedAt    time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt    gorm.DeletedAt `gorm:"index"`
-
-	// Relations
 	User User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }

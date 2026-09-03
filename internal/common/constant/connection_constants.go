@@ -1,7 +1,6 @@
-package connectioncommon
+package constant
 
 const (
-	// Connection Status
 	ConnectionStatusPending  = "pending"
 	ConnectionStatusAccepted = "accepted"
 	ConnectionStatusRejected = "rejected"

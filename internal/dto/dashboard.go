@@ -16,7 +16,7 @@ type DashboardSummaryResponse struct {
 
 type DashboardOngoingProjectsResponse struct {
 	Projects []DashboardProjectItem `json:"projects"`
-	Total    int64                 `json:"total"`
+	Total    int64                  `json:"total"`
 }
 
 type DashboardProjectItem struct {

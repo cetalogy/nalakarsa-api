@@ -16,7 +16,5 @@ type ProjectApplication struct {
 	CreatedAt   time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt   time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
-
-	// Relations
 	Applicant User `gorm:"foreignKey:ApplicantID;constraint:OnDelete:CASCADE"`
 }

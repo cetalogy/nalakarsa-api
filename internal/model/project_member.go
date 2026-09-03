@@ -13,7 +13,5 @@ type ProjectMember struct {
 	Role      string    `gorm:"type:varchar(50);not null"`                  // role within the project
 	Status    string    `gorm:"type:varchar(20);default:'active';not null"` // active, removed
 	JoinedAt  time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
-
-	// Relations
 	User User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }

@@ -22,8 +22,6 @@ type Discussion struct {
 	CreatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
-
-	// Relations
 	User    User              `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 	Replies []DiscussionReply `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`
 	Votes   []DiscussionVote  `gorm:"foreignKey:DiscussionID;constraint:OnDelete:CASCADE"`

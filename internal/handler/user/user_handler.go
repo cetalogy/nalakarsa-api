@@ -1,14 +1,16 @@
 package userhandler
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
 
-	usercommon "nalakarsa/internal/common/user"
+	"nalakarsa/internal/common/constant"
 	"nalakarsa/internal/config"
+	"nalakarsa/internal/contentfilter"
 	"nalakarsa/internal/dto"
 	userservice "nalakarsa/internal/service/user"
 	"nalakarsa/internal/utils"
@@ -87,7 +89,11 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	if err := h.userService.UpdateProfile(userID, req); err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		status := http.StatusInternalServerError
+		if errors.Is(err, contentfilter.ErrSensitiveContent) {
+			status = http.StatusBadRequest
+		}
+		utils.ErrorJSONResponseWithMessage(c, status, err.Error())
 		return
 	}
 
@@ -212,7 +218,7 @@ func (h *UserHandler) GetMyStats(c *gin.Context) {
 }
 
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, usercommon.MaxAvatarRequestSize)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, constant.MaxAvatarRequestSize)
 	var userID uuid.UUID
 	if userIDInterface, exists := c.Get("user_id"); exists {
 		userID = userIDInterface.(uuid.UUID)
@@ -232,8 +238,6 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 			return
 		}
 	}
-
-	// Get file from form (flexible key: avatar, file, image, photo)
 	file, err := c.FormFile("avatar")
 	if err != nil {
 		file, err = c.FormFile("file")
@@ -250,14 +254,10 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	}
 
 	log.Printf("[AVATAR UPLOAD] User %s uploading file '%s' (%d bytes, Content-Type: %s)", userID, file.Filename, file.Size, file.Header.Get("Content-Type"))
-
-	// Validate file size (max 5MB)
-	if file.Size > usercommon.MaxAvatarSize {
+	if file.Size > constant.MaxAvatarSize {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "File size exceeds 5MB limit")
 		return
 	}
-
-	// Validate file type (strictly JPG, JPEG, PNG)
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	allowedExts := map[string]bool{
 		".jpg":  true,
@@ -286,16 +286,12 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Uploaded file is not a valid JPG or PNG image")
 		return
 	}
-
-	// Upload to Supabase Storage
 	secureURL, err := utils.UploadAvatarToSupabase(userID, file, h.cfg)
 	if err != nil {
 		log.Printf("[AVATAR UPLOAD FAILED] User %s: %v", userID, err)
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, "Failed to upload avatar to cloud storage: "+err.Error())
 		return
 	}
-
-	// Update in database
 	if err := h.userService.UpdateAvatar(userID, secureURL); err != nil {
 		log.Printf("[AVATAR DB UPDATE FAILED] User %s: %v", userID, err)
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, "Failed to update profile avatar: "+err.Error())
@@ -364,7 +360,6 @@ func (h *UserHandler) GetFollowers(c *gin.Context) {
 	if targetIDStr == "" || targetIDStr == "me" {
 		userIDInterface, exists := c.Get("user_id")
 		if !exists {
-			// Fallback: parse Bearer token from header if hit via public group
 			authHeader := c.GetHeader("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
@@ -440,7 +435,6 @@ func (h *UserHandler) GetFollowing(c *gin.Context) {
 	if targetIDStr == "" || targetIDStr == "me" {
 		userIDInterface, exists := c.Get("user_id")
 		if !exists {
-			// Fallback: parse Bearer token from header if hit via public group
 			authHeader := c.GetHeader("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")

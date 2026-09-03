@@ -177,8 +177,6 @@ func (s *discussionService) Update(userID uuid.UUID, id uuid.UUID, req dto.Updat
 	if disc == nil {
 		return errors.New("discussion not found")
 	}
-
-	// Auth check: only owner can update
 	if disc.UserID != userID {
 		return errors.New("unauthorized to update this discussion")
 	}
@@ -204,8 +202,6 @@ func (s *discussionService) Delete(userID uuid.UUID, id uuid.UUID) error {
 	if disc == nil {
 		return errors.New("discussion not found")
 	}
-
-	// Auth check: only owner can delete
 	if disc.UserID != userID {
 		return errors.New("unauthorized to delete this discussion")
 	}
@@ -214,7 +210,6 @@ func (s *discussionService) Delete(userID uuid.UUID, id uuid.UUID) error {
 }
 
 func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, req dto.CreateReplyRequest) (*dto.DiscussionReplyResponse, error) {
-	// Verify discussion exists
 	disc, err := s.discRepo.GetByID(discussionID)
 	if err != nil {
 		return nil, err
@@ -233,8 +228,6 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 	if err := s.discRepo.CreateReply(reply); err != nil {
 		return nil, err
 	}
-
-	// Fetch user details for response
 	u, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
@@ -262,14 +255,10 @@ func (s *discussionService) DeleteReply(userID uuid.UUID, replyID uuid.UUID) err
 	if reply == nil {
 		return errors.New("reply not found")
 	}
-
-	// Verify discussion to see if current user is owner of discussion or reply
 	disc, err := s.discRepo.GetByID(reply.DiscussionID)
 	if err != nil {
 		return err
 	}
-
-	// Auth check: owner of reply OR owner of discussion can delete replies
 	if reply.UserID != userID && (disc == nil || disc.UserID != userID) {
 		return errors.New("unauthorized to delete this reply")
 	}
@@ -304,7 +293,6 @@ func (s *discussionService) toDiscussionReplyResponses(replies []model.Discussio
 }
 
 func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error {
-	// Verify discussion exists
 	disc, err := s.discRepo.GetByID(discussionID)
 	if err != nil {
 		return err
@@ -312,8 +300,6 @@ func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error
 	if disc == nil {
 		return errors.New("discussion not found")
 	}
-
-	// Check if already voted
 	hasVoted, err := s.discRepo.HasVoted(userID, discussionID)
 	if err != nil {
 		return err

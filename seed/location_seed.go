@@ -111,8 +111,6 @@ func SeedLocations(db *gorm.DB) error {
 			return err
 		}
 	}
-
-	// Map to quickly lookup created provinces
 	provinceByName := make(map[string]model.Location)
 	var existingProvinces []model.Location
 	if err := db.Where("type = ?", "province").Find(&existingProvinces).Error; err != nil {

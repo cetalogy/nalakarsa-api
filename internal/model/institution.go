@@ -5,8 +5,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-// Institution stores standardized institution/organization names for autocomplete support.
 type Institution struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	Name        string    `gorm:"type:varchar(255);not null;uniqueIndex"`

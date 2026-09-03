@@ -13,8 +13,14 @@ type ExpertiseService interface {
 }
 
 func (s *expertiseService) Create(name string) (*dto.ExpertiseSuggestion, error) {
-	name, err := reference.NormalizeName(name); if err != nil { return nil, err }
-	item, err := s.repo.Create(&model.Expertise{Name: name, IsActive: true}); if err != nil { return nil, err }
+	name, err := reference.NormalizeName(name)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.repo.Create(&model.Expertise{Name: name, IsActive: true})
+	if err != nil {
+		return nil, err
+	}
 	return &dto.ExpertiseSuggestion{ID: item.ID, Name: item.Name}, nil
 }
 

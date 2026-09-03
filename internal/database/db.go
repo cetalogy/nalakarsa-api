@@ -55,8 +55,6 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
-
-	// Set connection pooling properties
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sql.DB from gorm: %w", err)
@@ -67,17 +65,12 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	log.Println("Database connection successfully established.")
-
-	// Enable UUID extension in Postgres (required for uuid_generate_v4)
 	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").Error; err != nil {
 		return nil, fmt.Errorf("failed to enable uuid-ossp extension: %w", err)
 	}
-
-	// Auto Migration
 	if cfg.DBAutoMigrate {
 		log.Println("Running database migrations...")
 		err = db.AutoMigrate(
-			// Core
 			&model.User{},
 			&model.UserFollower{},
 			&model.Institution{},
@@ -86,34 +79,22 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			&model.KnowledgeField{},
 
 			&model.RefreshToken{},
-
-			// Discussions
 			&model.Discussion{},
 			&model.DiscussionReply{},
 			&model.DiscussionVote{},
-
-			// Connections
 			&model.Connection{},
-
-			// Projects & Collaboration Requests
 			&model.Project{},
 			&model.ProjectMember{},
 			&model.ProjectApplication{},
 			&model.ProjectMilestone{},
 			&model.CollaborationRequest{},
-
-			// Chat & Group Chats
 			&model.Conversation{},
 			&model.ConversationMember{},
 			&model.Message{},
 			&model.GroupChat{},
 			&model.GroupChatMember{},
 			&model.GroupMessage{},
-
-			// Notifications
 			&model.Notification{},
-
-			// Homepage (landing content)
 			&model.HomepageHero{},
 			&model.HomepageSection{},
 			&model.HomepageTestimonial{},
@@ -126,11 +107,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	} else {
 		log.Println("Database auto-migration is disabled (DB_AUTO_MIGRATE=false).")
 	}
-
-	// Ensure columns introduced after the initial schema are present on existing databases.
-	// These statements are idempotent and do not remove existing data.
 	latestSchemaStatements := []string{
-		// Expertise may have multiple specifications under the same name.
 		`DROP INDEX IF EXISTS uni_expertises_name`,
 		`DROP INDEX IF EXISTS idx_expertises_name`,
 		`DROP INDEX IF EXISTS idx_expertise_hierarchy`,
@@ -190,8 +167,6 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			return nil, fmt.Errorf("failed to apply latest schema change: %w", err)
 		}
 	}
-
-	// Ensure Counter Cache columns exist
 	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS replies_count BIGINT DEFAULT 0 NOT NULL").Error
 	_ = db.Exec("ALTER TABLE discussions ADD COLUMN IF NOT EXISTS upvote_count BIGINT DEFAULT 0 NOT NULL").Error
 	_ = db.Exec("CREATE EXTENSION IF NOT EXISTS pg_trgm").Error
@@ -201,20 +176,13 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages (conversation_id, created_at DESC)").Error
 	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_connections_requester_status ON connections (requester_id, status)").Error
 	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_connections_addressee_status ON connections (addressee_id, status)").Error
-
-	// Ensure Compound Performance Indexes exist
 	_ = db.Exec("CREATE INDEX IF NOT EXISTS idx_replies_discussion_created ON discussion_replies (discussion_id, created_at DESC)").Error
 	_ = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_votes_discussion_user ON discussion_votes (discussion_id, user_id)").Error
-
-	// Clean up legacy duplicated avatar URL prefixes in users table
 	_ = db.Exec("UPDATE users SET avatar_url = REPLACE(avatar_url, '/avatars/avatars/avatars/', '/avatars/') WHERE avatar_url LIKE '%/avatars/avatars/avatars/%'").Error
 	_ = db.Exec("UPDATE users SET avatar_url = REPLACE(avatar_url, '/avatars/avatars/', '/avatars/') WHERE avatar_url LIKE '%/avatars/avatars/%'").Error
 
 	return db, nil
 }
-
-// StartRefreshTokenCleanup removes expired sessions even when no user calls the
-// refresh endpoint. It runs in the application process against PostgreSQL.
 func StartRefreshTokenCleanup(db *gorm.DB) {
 	go func() {
 		ticker := time.NewTicker(15 * time.Minute)

@@ -10,8 +10,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-// MockUserRepository implements repository.UserRepository for testing
 type mockUserRepository struct {
 	users         map[string]*model.User
 	refreshTokens map[string]*model.RefreshToken
@@ -143,8 +141,6 @@ func (m *mockUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, k
 	if keepLatest < 0 {
 		keepLatest = 0
 	}
-
-	// simple strategy: remove all first, then keep the newest by insertion not guaranteed in mock
 	var tokens []*model.RefreshToken
 	for t, rt := range m.refreshTokens {
 		if rt.UserID == userID {
@@ -217,8 +213,6 @@ func TestRegisterAndLogin(t *testing.T) {
 	}
 
 	authServ := NewAuthService(mockRepo, cfg)
-
-	// Test case 1: Successful Registration
 	regReq := dto.RegisterRequest{
 		Email:       "test@nalakarsa.id",
 		Password:    "Password123!",
@@ -239,14 +233,10 @@ func TestRegisterAndLogin(t *testing.T) {
 	if regRes.User.Email != regReq.Email {
 		t.Errorf("Expected registered email %s, got %s", regReq.Email, regRes.User.Email)
 	}
-
-	// Test case 2: Duplicate Registration (Should fail)
 	_, err = authServ.Register(regReq, nil)
 	if err == nil {
 		t.Errorf("Expected duplicate registration to fail, but it succeeded")
 	}
-
-	// Test case 3: Successful Login
 	loginReq := dto.LoginRequest{
 		Email:    "test@nalakarsa.id",
 		Password: "Password123!",
@@ -268,8 +258,6 @@ func TestRegisterAndLogin(t *testing.T) {
 	if loginData.User.Email != loginReq.Email {
 		t.Errorf("Expected logged-in user email %s, got %s", loginReq.Email, loginData.User.Email)
 	}
-
-	// Test case 4: Invalid Password Login (Should fail)
 	invalidLoginReq := dto.LoginRequest{
 		Email:    "test@nalakarsa.id",
 		Password: "wrongpassword",

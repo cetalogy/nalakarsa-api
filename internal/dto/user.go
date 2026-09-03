@@ -24,8 +24,6 @@ type UserResponse struct {
 	AvatarURL   string    `json:"avatar_url"`
 	CreatedAt   time.Time `json:"created_at"`
 }
-
-// UserProfileStatsResponse adds aggregate stats for profile view
 type UserProfileStatsResponse struct {
 	UserResponse
 	Stats ProfileStats `json:"stats"`
@@ -87,16 +85,12 @@ type PaginationResponse struct {
 	TotalItems  int64 `json:"total_items"`
 	Limit       int   `json:"limit"`
 }
-
-// APIResponse is the standard response envelope
 type APIResponse struct {
 	Data      interface{}         `json:"data,omitempty"`
 	Meta      *PaginationResponse `json:"meta,omitempty"`
 	Message   string              `json:"message"`
 	Timestamp string              `json:"timestamp,omitempty"`
 }
-
-// APIErrorResponse is the standard error envelope
 type APIErrorResponse struct {
 	Error APIErrorDetail `json:"error"`
 }

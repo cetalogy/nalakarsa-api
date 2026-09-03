@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"nalakarsa/internal/config"
 	"net/http"
 	"net/url"
-	"nalakarsa/internal/config"
 	"path/filepath"
 	"strings"
 	"time"
@@ -84,7 +84,7 @@ func UploadChatAttachment(conversationID uuid.UUID, fileHeader *multipart.FileHe
 
 	allowedTypes := map[string]bool{
 		"image/jpeg": true, "image/jpg": true, "image/png": true,
-		"application/pdf": true,
+		"application/pdf":    true,
 		"application/msword": true,
 		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
 	}

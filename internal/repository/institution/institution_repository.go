@@ -3,9 +3,9 @@ package institutionrepository
 import (
 	"strings"
 
-	"nalakarsa/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"nalakarsa/internal/model"
 )
 
 type InstitutionRepository interface {
@@ -14,9 +14,13 @@ type InstitutionRepository interface {
 }
 
 func (r *institutionRepository) Create(item *model.Institution) (*model.Institution, error) {
-	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil { return nil, err }
+	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil {
+		return nil, err
+	}
 	var existing model.Institution
-	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil { return nil, err }
+	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil {
+		return nil, err
+	}
 	return &existing, nil
 }
 

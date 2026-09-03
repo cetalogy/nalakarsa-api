@@ -19,8 +19,6 @@ type TokenPayload struct {
 	Token     string
 	ExpiresAt time.Time
 }
-
-// GenerateAccessToken generates a short-lived access token
 func GenerateAccessToken(userID uuid.UUID, email, role, secret string, expirationSeconds int) (*TokenPayload, error) {
 	expiresAt := time.Now().Add(time.Duration(expirationSeconds) * time.Second)
 	claims := &JWTClaims{
@@ -45,8 +43,6 @@ func GenerateAccessToken(userID uuid.UUID, email, role, secret string, expiratio
 		ExpiresAt: expiresAt,
 	}, nil
 }
-
-// GenerateRefreshToken generates a long-lived refresh token
 func GenerateRefreshToken(userID uuid.UUID, secret string, expirationSeconds int) (*TokenPayload, error) {
 	expiresAt := time.Now().Add(time.Duration(expirationSeconds) * time.Second)
 	claims := &jwt.RegisteredClaims{
@@ -67,8 +63,6 @@ func GenerateRefreshToken(userID uuid.UUID, secret string, expirationSeconds int
 		ExpiresAt: expiresAt,
 	}, nil
 }
-
-// ValidateToken validates a JWT token and returns its claims
 func ValidateToken(tokenString, secret string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
