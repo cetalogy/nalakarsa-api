@@ -148,7 +148,9 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			('Aktivitas Badan Internasional & Badan Ekstra Internasional', true)
 		ON CONFLICT (name) DO NOTHING`,
 		`DROP INDEX IF EXISTS idx_knowledge_field_name`,
-		`UPDATE knowledge_fields SET name = trim(regexp_replace(regexp_replace(name, '^[(][0-9]+[)][[:space:]]*', ''), '[[:space:]]+[0-9]+$', '')) WHERE name ~ '^[(][0-9]+[)]' OR name ~ '[[:space:]]+[0-9]+$'`,
+		`UPDATE knowledge_fields SET name = trim(regexp_replace(regexp_replace(name, '^[[:space:]]*[(]?[0-9]+[.)][[:space:]]*', ''), '[[:space:]]+[0-9]+$', '')) WHERE name ~ '^[[:space:]]*[(]?[0-9]+[.)]' OR name ~ '[[:space:]]+[0-9]+$'`,
+		`DELETE FROM knowledge_fields a USING knowledge_fields b WHERE a.id > b.id AND a.name = b.name`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_field_name ON knowledge_fields (name)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(30) NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash VARCHAR(255) NOT NULL DEFAULT ''`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_path TEXT`,
