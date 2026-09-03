@@ -7,4 +7,5 @@ import (
 
 func RegisterRoutes(public *gin.RouterGroup, handler *industryhandler.IndustryHandler) {
 	public.GET("/industries/search", handler.Search)
+	public.POST("/industries", handler.Create)
 }

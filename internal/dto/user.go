@@ -67,18 +67,18 @@ type FollowUserItemResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	FirstName   string `json:"firstName"`
-	MiddleName  string `json:"middleName"`
-	LastName    string `json:"lastName"`
-	FullName    string `json:"fullName"`
-	PrefixTitle string `json:"prefixTitle"`
-	SuffixTitle string `json:"suffixTitle"`
-	Affiliation string `json:"affiliation"`
-	Location    string `json:"location"`
-	Expertise   string `json:"expertise"`
-	Industry    string `json:"industry"`
-	Bio         string `json:"bio" binding:"max=500"`
-	AvatarURL   string `json:"avatar_url"`
+	FirstName   *string `json:"firstName"`
+	MiddleName  *string `json:"middleName"`
+	LastName    *string `json:"lastName"`
+	FullName    *string `json:"fullName"`
+	PrefixTitle *string `json:"prefixTitle"`
+	SuffixTitle *string `json:"suffixTitle"`
+	Affiliation *string `json:"affiliation"`
+	Location    *string `json:"location"`
+	Expertise   *string `json:"expertise"`
+	Industry    *string `json:"industry"`
+	Bio         *string `json:"bio" binding:"max=500"`
+	AvatarURL   *string `json:"avatar_url"`
 }
 
 type PaginationResponse struct {
