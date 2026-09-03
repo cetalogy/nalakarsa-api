@@ -9,7 +9,7 @@ import (
 )
 
 type InstitutionRepository interface {
-	Search(search string, limit int) ([]model.Institution, error)
+	Search(search string, page, limit int) ([]model.Institution, int64, error)
 	Create(item *model.Institution) (*model.Institution, error)
 }
 
@@ -30,17 +30,25 @@ func NewInstitutionRepository(db *gorm.DB) InstitutionRepository {
 	return &institutionRepository{db: db}
 }
 
-func (r *institutionRepository) Search(search string, limit int) ([]model.Institution, error) {
+func (r *institutionRepository) Search(search string, page, limit int) ([]model.Institution, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
 	if limit <= 0 || limit > 30 {
 		limit = 10
 	}
 	search = strings.TrimSpace(search)
 
-	var result []model.Institution
 	query := r.db.Where("is_active = ?", true)
 	if search != "" {
 		query = query.Where("name ILIKE ?", "%"+search+"%")
 	}
-	err := query.Order("name ASC").Limit(limit).Find(&result).Error
-	return result, err
+	var total int64
+	if err := query.Model(&model.Institution{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var result []model.Institution
+	err := query.Order("name ASC").Offset((page - 1) * limit).Limit(limit).Find(&result).Error
+	return result, total, err
 }

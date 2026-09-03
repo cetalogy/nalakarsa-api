@@ -39,6 +39,14 @@ func NewInstitutionHandler(institutionService institutionservice.InstitutionServ
 func (h *InstitutionHandler) Search(c *gin.Context) {
 	search := strings.TrimSpace(c.Query("q"))
 
+	page := 1
+	if pageQuery := c.Query("page"); pageQuery != "" {
+		parsedPage, err := strconv.Atoi(pageQuery)
+		if err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+
 	limit := 10
 	if limitQuery := c.Query("limit"); limitQuery != "" {
 		parsedLimit, err := strconv.Atoi(limitQuery)
@@ -50,11 +58,20 @@ func (h *InstitutionHandler) Search(c *gin.Context) {
 		limit = 20
 	}
 
-	institutions, err := h.institutionService.SearchInstitutions(search, limit)
+	institutions, total, err := h.institutionService.SearchInstitutions(search, page, limit)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	utils.JSONResponse(c, http.StatusOK, "Institution suggestions retrieved successfully", institutions, nil)
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	utils.JSONResponse(c, http.StatusOK, "Institution suggestions retrieved successfully", institutions, &dto.PaginationResponse{
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalItems:  total,
+		Limit:       limit,
+	})
 }
