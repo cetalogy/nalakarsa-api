@@ -131,6 +131,10 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	// Ensure columns introduced after the initial schema are present on existing databases.
 	// These statements are idempotent and do not remove existing data.
 	latestSchemaStatements := []string{
+		// Expertise may have multiple specifications under the same name.
+		`DROP INDEX IF EXISTS uni_expertises_name`,
+		`DROP INDEX IF EXISTS idx_expertises_name`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_expertise_hierarchy ON expertises (category, name, specification)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(30) NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash VARCHAR(255) NOT NULL DEFAULT ''`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_path TEXT`,
