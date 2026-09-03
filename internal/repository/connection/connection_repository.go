@@ -119,7 +119,6 @@ func (r *pgConnectionRepository) CountAccepted(userID uuid.UUID) (int64, error) 
 
 func (r *pgConnectionRepository) CountMutual(userA, userB uuid.UUID) (int64, error) {
 	var count int64
-	// Mutual connections: users connected to both userA and userB
 	err := r.db.Raw(`
 		SELECT COUNT(*) FROM (
 			SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END as uid

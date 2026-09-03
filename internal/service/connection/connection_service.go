@@ -3,7 +3,7 @@ package connectionservice
 import (
 	"errors"
 
-	connectioncommon "nalakarsa/internal/common/connection"
+	"nalakarsa/internal/common/constant"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	connectionrepository "nalakarsa/internal/repository/connection"
@@ -40,7 +40,6 @@ func (s *connectionService) ListConnections(userID uuid.UUID, page, limit int) (
 
 	res := make([]dto.ConnectionResponse, len(conns))
 	for i, c := range conns {
-		// Show the other user
 		other := c.Addressee
 		if c.AddresseeID == userID {
 			other = c.Requester
@@ -70,7 +69,6 @@ func (s *connectionService) ListRequests(userID uuid.UUID, requestType string, p
 
 	res := make([]dto.ConnectionRequestResponse, len(conns))
 	for i, c := range conns {
-		// For incoming, show the requester; for outgoing, show the addressee
 		other := c.Requester
 		if requestType == "outgoing" {
 			other = c.Addressee
@@ -93,12 +91,9 @@ func (s *connectionService) ListRequests(userID uuid.UUID, requestType string, p
 }
 
 func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnectionRequest) (uuid.UUID, error) {
-	// Cannot connect to self
 	if userID == req.TargetUserID {
 		return uuid.Nil, errors.New("cannot send connection request to yourself")
 	}
-
-	// Check target user exists
 	target, err := s.userRepo.GetByID(req.TargetUserID)
 	if err != nil {
 		return uuid.Nil, err
@@ -106,17 +101,15 @@ func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnection
 	if target == nil {
 		return uuid.Nil, errors.New("target user not found")
 	}
-
-	// Check for existing connection/request
 	existing, err := s.connRepo.GetByPair(userID, req.TargetUserID)
 	if err != nil {
 		return uuid.Nil, err
 	}
 	if existing != nil {
-		if existing.Status == connectioncommon.ConnectionStatusAccepted {
+		if existing.Status == constant.ConnectionStatusAccepted {
 			return uuid.Nil, errors.New("already connected with this user")
 		}
-		if existing.Status == connectioncommon.ConnectionStatusPending {
+		if existing.Status == constant.ConnectionStatusPending {
 			return uuid.Nil, errors.New("connection request already exists")
 		}
 	}
@@ -124,7 +117,7 @@ func (s *connectionService) SendRequest(userID uuid.UUID, req dto.SendConnection
 	conn := &model.Connection{
 		RequesterID: userID,
 		AddresseeID: req.TargetUserID,
-		Status:      connectioncommon.ConnectionStatusPending,
+		Status:      constant.ConnectionStatusPending,
 	}
 
 	if err := s.connRepo.Create(conn); err != nil {
@@ -142,17 +135,15 @@ func (s *connectionService) AcceptRequest(userID uuid.UUID, requestID uuid.UUID)
 	if conn == nil {
 		return errors.New("connection request not found")
 	}
-
-	// Only addressee can accept
 	if conn.AddresseeID != userID {
 		return errors.New("unauthorized to accept this request")
 	}
 
-	if conn.Status != connectioncommon.ConnectionStatusPending {
+	if conn.Status != constant.ConnectionStatusPending {
 		return errors.New("connection request is no longer pending")
 	}
 
-	conn.Status = connectioncommon.ConnectionStatusAccepted
+	conn.Status = constant.ConnectionStatusAccepted
 	return s.connRepo.Update(conn)
 }
 
@@ -164,17 +155,15 @@ func (s *connectionService) RejectRequest(userID uuid.UUID, requestID uuid.UUID)
 	if conn == nil {
 		return errors.New("connection request not found")
 	}
-
-	// Only addressee can reject
 	if conn.AddresseeID != userID {
 		return errors.New("unauthorized to reject this request")
 	}
 
-	if conn.Status != connectioncommon.ConnectionStatusPending {
+	if conn.Status != constant.ConnectionStatusPending {
 		return errors.New("connection request is no longer pending")
 	}
 
-	conn.Status = connectioncommon.ConnectionStatusRejected
+	conn.Status = constant.ConnectionStatusRejected
 	return s.connRepo.Update(conn)
 }
 
@@ -186,13 +175,11 @@ func (s *connectionService) CancelRequest(userID uuid.UUID, requestID uuid.UUID)
 	if conn == nil {
 		return errors.New("connection request not found")
 	}
-
-	// Only requester can cancel
 	if conn.RequesterID != userID {
 		return errors.New("unauthorized to cancel this request")
 	}
 
-	if conn.Status != connectioncommon.ConnectionStatusPending {
+	if conn.Status != constant.ConnectionStatusPending {
 		return errors.New("connection request is no longer pending")
 	}
 
@@ -204,7 +191,7 @@ func (s *connectionService) RemoveConnection(userID uuid.UUID, targetUserID uuid
 	if err != nil {
 		return err
 	}
-	if conn == nil || conn.Status != connectioncommon.ConnectionStatusAccepted {
+	if conn == nil || conn.Status != constant.ConnectionStatusAccepted {
 		return errors.New("connection not found")
 	}
 
@@ -212,7 +199,6 @@ func (s *connectionService) RemoveConnection(userID uuid.UUID, targetUserID uuid
 }
 
 func (s *connectionService) GetSuggestions(userID uuid.UUID, limit int) ([]dto.UserSuggestionResponse, error) {
-	// Simple suggestion: list users not connected and not self
 	users, _, err := s.userRepo.ListUsers("", "", 1, limit+10)
 	if err != nil {
 		return nil, err
@@ -223,8 +209,6 @@ func (s *connectionService) GetSuggestions(userID uuid.UUID, limit int) ([]dto.U
 		if u.ID == userID {
 			continue
 		}
-
-		// Check if already connected or has pending request
 		existing, _ := s.connRepo.GetByPair(userID, u.ID)
 		if existing != nil {
 			continue

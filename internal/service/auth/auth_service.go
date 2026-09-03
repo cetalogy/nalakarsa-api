@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"nalakarsa/internal/config"
+	"nalakarsa/internal/contentfilter"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	userrepository "nalakarsa/internal/repository/user"
@@ -42,9 +43,7 @@ func NewAuthService(userRepo userrepository.UserRepository, cfg *config.Config) 
 }
 
 func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
-	// Normalize email
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	// Check if user already exists
 	existing, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, err
@@ -55,18 +54,23 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	if err := validatePassword(req.Password); err != nil {
 		return nil, err
 	}
+	values := []string{req.FirstName, req.LastName, req.FullName, req.Affiliation, req.Location, req.Expertise, req.Industry, req.Bio}
+	if req.MiddleName != nil {
+		values = append(values, *req.MiddleName)
+	}
+	for _, value := range values {
+		if err := contentfilter.Validate(value); err != nil {
+			return nil, err
+		}
+	}
 	securityAnswerHash, err := utils.HashPassword(normalizeSecurityAnswer(req.SecurityAnswer))
 	if err != nil {
 		return nil, err
 	}
-
-	// Hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
 	}
-
-	// Create user model
 	u := &model.User{
 		Email:              req.Email,
 		PasswordHash:       hashedPassword,
@@ -91,8 +95,6 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 	if err := s.userRepo.Create(u); err != nil {
 		return nil, err
 	}
-
-	// Generate Tokens
 	accessTokenPayload, err := utils.GenerateAccessToken(u.ID, u.Email, u.Role, s.cfg.JWTSecret, s.cfg.JWTAccessExpiration)
 	if err != nil {
 		return nil, err
@@ -168,18 +170,12 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 	if u == nil {
 		return nil, errors.New("invalid email or password")
 	}
-
-	// Check account status
 	if u.Status != "active" {
 		return nil, errors.New("account is suspended")
 	}
-
-	// Verify password
 	if !utils.ComparePassword(u.PasswordHash, req.Password) {
 		return nil, errors.New("invalid email or password")
 	}
-
-	// Generate Access Token
 	accessTokenPayload, err := utils.GenerateAccessToken(
 		u.ID,
 		u.Email,
@@ -190,8 +186,6 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 	if err != nil {
 		return nil, err
 	}
-
-	// Generate Refresh Token
 	refreshTokenPayload, err := utils.GenerateRefreshToken(
 		u.ID,
 		s.cfg.JWTRefreshSecret,
@@ -232,7 +226,6 @@ func (s *authService) Login(req dto.LoginRequest, ctx *dto.AuthRequestContext) (
 }
 
 func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthRequestContext) (*dto.RefreshTokenData, error) {
-	// Find token in database
 	rt, err := s.userRepo.GetRefreshToken(req.RefreshToken)
 	if err != nil {
 		return nil, err
@@ -240,14 +233,10 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 	if rt == nil {
 		return nil, errors.New("invalid refresh token")
 	}
-
-	// Check expiration
 	if time.Now().After(rt.ExpiresAt) {
 		_ = s.userRepo.DeleteRefreshToken(req.RefreshToken)
 		return nil, errors.New("refresh token expired")
 	}
-
-	// Get User details
 	u, err := s.userRepo.GetByID(rt.UserID)
 	if err != nil {
 		return nil, err
@@ -255,8 +244,6 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 	if u == nil {
 		return nil, errors.New("user not found")
 	}
-
-	// Generate new Access Token
 	accessTokenPayload, err := utils.GenerateAccessToken(
 		u.ID,
 		u.Email,
@@ -267,8 +254,6 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 	if err != nil {
 		return nil, err
 	}
-
-	// Generate new Refresh Token (Refresh Token Rotation)
 	refreshTokenPayload, err := utils.GenerateRefreshToken(
 		u.ID,
 		s.cfg.JWTRefreshSecret,
@@ -277,15 +262,10 @@ func (s *authService) RefreshToken(req dto.RefreshTokenRequest, ctx *dto.AuthReq
 	if err != nil {
 		return nil, err
 	}
-
-	// Save new token first so we don't silently drop sessions on storage failure.
 	if err := s.saveRefreshTokenWithSessionMeta(u.ID, refreshTokenPayload.Token, refreshTokenPayload.ExpiresAt, s.withFallbackSessionContext(ctx, rt)); err != nil {
 		return nil, err
 	}
-
-	// Revoke old refresh token after the new token is safely persisted.
 	if err := s.userRepo.DeleteRefreshToken(req.RefreshToken); err != nil {
-		// Best-effort rollback: remove the newly issued token so we don't keep extra active tokens.
 		if rollbackErr := s.userRepo.DeleteRefreshToken(refreshTokenPayload.Token); rollbackErr != nil {
 			return nil, fmt.Errorf("failed to revoke old refresh token and rollback new token: %w", rollbackErr)
 		}

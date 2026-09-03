@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	notificationcommon "nalakarsa/internal/common/notification"
+	"nalakarsa/internal/common/constant"
+	"nalakarsa/internal/contentfilter"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
 	connectionrepository "nalakarsa/internal/repository/connection"
@@ -76,11 +77,7 @@ func (s *userService) GetPublicProfile(userID uuid.UUID) (*dto.UserProfileStatsR
 	if u == nil {
 		return nil, errors.New("user not found")
 	}
-
-	// Increment view count
 	_ = s.userRepo.IncrementViewCount(userID)
-
-	// Get stats
 	connCount, _ := s.connRepo.CountAccepted(userID)
 	projCount, _ := s.projRepo.CountByOwner(userID, "")
 	discCount, _ := s.userRepo.CountDiscussions(userID)
@@ -129,6 +126,14 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 	industry := updateValue(req.Industry, existingUser.Industry)
 	bio := updateValue(req.Bio, existingUser.Bio)
 	avatarURL := updateValue(req.AvatarURL, existingUser.AvatarURL)
+	values := []*string{req.FirstName, req.MiddleName, req.LastName, req.FullName, req.PrefixTitle, req.SuffixTitle, req.Affiliation, req.Location, req.Expertise, req.Industry, req.Bio}
+	for _, value := range values {
+		if value != nil {
+			if err := contentfilter.Validate(*value); err != nil {
+				return err
+			}
+		}
+	}
 
 	u := &model.User{
 		ID:          userID,
@@ -150,7 +155,9 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 }
 
 func updateValue(value *string, current string) string {
-	if value == nil { return current }
+	if value == nil {
+		return current
+	}
 	return strings.TrimSpace(*value)
 }
 
@@ -243,7 +250,6 @@ func (s *userService) ToggleFollow(currentUserID, targetUserID uuid.UUID) (*dto.
 	if !isFollowing {
 		message = "User unfollowed successfully"
 	} else if s.notifRepo != nil {
-		// Send in-app notification to the followed user
 		follower, _ := s.userRepo.GetByID(currentUserID)
 		followerName := "Someone"
 		if follower != nil && follower.FullName != "" {
@@ -257,9 +263,9 @@ func (s *userService) ToggleFollow(currentUserID, targetUserID uuid.UUID) (*dto.
 
 		notif := model.Notification{
 			UserID:       targetUserID, // Sent to the user being followed
-			Type:         notificationcommon.TypeFollow,
+			Type:         constant.TypeFollow,
 			ActorID:      &currentUserID, // Follower
-			ResourceType: notificationcommon.ResourceUser,
+			ResourceType: constant.ResourceUser,
 			ResourceID:   &currentUserID,
 			Payload:      string(notifPayload),
 		}

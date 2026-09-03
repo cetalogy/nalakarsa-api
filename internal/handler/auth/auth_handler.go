@@ -1,8 +1,8 @@
 package authhandler
 
 import (
-	"net/http"
 	"log"
+	"net/http"
 	"strings"
 
 	"nalakarsa/internal/dto"
@@ -70,16 +70,12 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req dto.LogoutRequest
-	// FE may not always send refresh_token for logout
 	_ = c.ShouldBindJSON(&req)
-
-	// Audit log always exists for logout events
 	userID, _ := c.Get("user_id")
 	if req.RefreshToken != "" {
 		log.Printf("[auth][logout] user_id=%v ip=%s action=logout_refresh_revoke requested=true", userID, c.ClientIP())
 		if err := h.authService.Logout(req.RefreshToken); err != nil {
 			log.Printf("[auth][logout] user_id=%v ip=%s action=logout_refresh_revoke result=failed error=%v", userID, c.ClientIP(), err)
-			// keep response success to avoid token-existence leakage
 		} else {
 			log.Printf("[auth][logout] user_id=%v ip=%s action=logout_refresh_revoke result=success", userID, c.ClientIP())
 		}

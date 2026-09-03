@@ -15,15 +15,11 @@ type DiscussionRepository interface {
 	List(search, category, role, sort string, page, limit int) ([]model.Discussion, int64, error)
 	Update(disc *model.Discussion) error
 	Delete(id uuid.UUID) error
-
-	// Replies (was Comments)
 	CreateReply(reply *model.DiscussionReply) error
 	GetReplyByID(id uuid.UUID) (*model.DiscussionReply, error)
 	DeleteReply(id uuid.UUID) error
 	ListReplies(discussionID uuid.UUID, page, limit int) ([]model.DiscussionReply, int64, error)
 	CountReplies(discussionID uuid.UUID) (int64, error)
-
-	// Votes
 	CreateVote(vote *model.DiscussionVote) error
 	DeleteVote(userID, discussionID uuid.UUID) error
 	HasVoted(userID, discussionID uuid.UUID) (bool, error)
@@ -78,19 +74,13 @@ func (r *pgDiscussionRepository) List(search, category, role, sort string, page,
 		searchTerm := "%" + search + "%"
 		query = query.Where("discussions.title ILIKE ? OR discussions.description ILIKE ?", searchTerm, searchTerm)
 	}
-
-	// Count total records
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-
-	// Apply Sorting
 	order := "discussions.created_at desc"
 	if sort == "oldest" {
 		order = "discussions.created_at asc"
 	}
-
-	// Fetch paginated results
 	offset := (page - 1) * limit
 	err := query.Limit(limit).Offset(offset).Order(order).Find(&discussions).Error
 	if err != nil {
@@ -107,8 +97,6 @@ func (r *pgDiscussionRepository) Update(disc *model.Discussion) error {
 func (r *pgDiscussionRepository) Delete(id uuid.UUID) error {
 	return r.db.Unscoped().Where("id = ?", id).Delete(&model.Discussion{}).Error
 }
-
-// --- Replies ---
 
 func (r *pgDiscussionRepository) CreateReply(reply *model.DiscussionReply) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
@@ -171,8 +159,6 @@ func (r *pgDiscussionRepository) CountReplies(discussionID uuid.UUID) (int64, er
 	err := r.db.Model(&model.Discussion{}).Select("replies_count").Where("id = ?", discussionID).Scan(&count).Error
 	return count, err
 }
-
-// --- Votes ---
 
 func (r *pgDiscussionRepository) CreateVote(vote *model.DiscussionVote) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {

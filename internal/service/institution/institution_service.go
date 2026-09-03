@@ -15,8 +15,14 @@ type InstitutionService interface {
 }
 
 func (s *institutionService) CreateInstitution(name string) (*dto.InstitutionSuggestion, error) {
-	name, err := reference.NormalizeName(name); if err != nil { return nil, err }
-	item, err := s.institutionRepo.Create(&model.Institution{Name: name, CountryCode: "ID", Country: "Indonesia", Type: "university", IsActive: true}); if err != nil { return nil, err }
+	name, err := reference.NormalizeName(name)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.institutionRepo.Create(&model.Institution{Name: name, CountryCode: "ID", Country: "Indonesia", Type: "university", IsActive: true})
+	if err != nil {
+		return nil, err
+	}
 	return &dto.InstitutionSuggestion{ID: item.ID, Name: item.Name, CountryCode: item.CountryCode, Country: item.Country, City: item.City, Type: item.Type, IsInternational: strings.ToUpper(item.CountryCode) != "ID"}, nil
 }
 

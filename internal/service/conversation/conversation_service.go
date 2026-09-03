@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	conversationcommon "nalakarsa/internal/common/conversation"
+	"nalakarsa/internal/common/constant"
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
@@ -26,14 +26,10 @@ type ConversationService interface {
 	SendMessage(userID uuid.UUID, conversationID uuid.UUID, req dto.SendMessageRequest) (*dto.MessageResponse, error)
 	UploadAttachment(userID uuid.UUID, conversationID uuid.UUID, file *multipart.FileHeader) (*dto.AttachmentUploadResponse, error)
 	MarkRead(userID uuid.UUID, conversationID uuid.UUID) error
-
-	// Group Chats (FE Contract Specification)
 	ListGroupChats(userID uuid.UUID) ([]dto.GroupChatResponse, error)
 	ListGroupMessages(userID uuid.UUID, groupChatID uuid.UUID, page, limit int) ([]dto.GroupMessageResponse, int64, error)
 	SendGroupMessage(userID uuid.UUID, groupChatID uuid.UUID, req dto.SendGroupMessageRequest) (*dto.GroupMessageResponse, error)
 	UploadGroupAttachment(userID uuid.UUID, groupChatID uuid.UUID, file *multipart.FileHeader) (*dto.AttachmentUploadResponse, error)
-
-	// Delete message (Direct & Group)
 	DeleteMessage(userID uuid.UUID, messageID uuid.UUID) error
 }
 
@@ -57,8 +53,6 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	if userID == targetUUID {
 		return nil, errors.New("cannot create conversation with yourself")
 	}
-
-	// Check target user exists
 	target, err := s.userRepo.GetByID(targetUUID)
 	if err != nil {
 		return nil, err
@@ -66,8 +60,6 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	if target == nil {
 		return nil, errors.New("target user not found")
 	}
-
-	// Check if direct conversation already exists
 	existing, err := s.convRepo.GetDirectByPair(userID, targetUUID)
 	if err != nil {
 		return nil, err
@@ -75,24 +67,18 @@ func (s *conversationService) GetOrCreateDirect(userID uuid.UUID, req dto.Create
 	if existing != nil {
 		return s.buildConversationResponse(existing, userID)
 	}
-
-	// Create new conversation
 	conv := &model.Conversation{
-		Type: conversationcommon.ConversationTypeDirect,
+		Type: constant.ConversationTypeDirect,
 	}
 	if err := s.convRepo.Create(conv); err != nil {
 		return nil, err
 	}
-
-	// Add both members
 	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: userID}); err != nil {
 		return nil, err
 	}
 	if err := s.convRepo.AddMember(&model.ConversationMember{ConversationID: conv.ID, UserID: targetUUID}); err != nil {
 		return nil, err
 	}
-
-	// Reload with preloads
 	conv, err = s.convRepo.GetByID(conv.ID)
 	if err != nil {
 		return nil, err
@@ -106,15 +92,10 @@ func (s *conversationService) StartChat(userID uuid.UUID, req dto.StartChatReque
 	if err != nil {
 		return nil, err
 	}
-
-	// Resolve to explicit direct-conversation target and reuse existing method.
 	return s.GetOrCreateDirect(userID, dto.CreateDirectConversationRequest{
 		TargetUserID: targetUserID.String(),
 	})
 }
-
-// resolveTargetUserID finds a unique active recipient by exact full name and optional role.
-// If zero or multiple matches are found, it returns an explicit error for deterministic behavior.
 func (s *conversationService) resolveTargetUserID(name, role string) (uuid.UUID, error) {
 	cleanName := strings.TrimSpace(name)
 	cleanRole := strings.TrimSpace(role)
@@ -163,7 +144,6 @@ func (s *conversationService) ListConversations(userID uuid.UUID, page, limit in
 }
 
 func (s *conversationService) ListMessages(userID uuid.UUID, conversationID uuid.UUID, limit int, cursor string) ([]dto.MessageResponse, bool, error) {
-	// Verify membership
 	member, err := s.convRepo.GetMember(conversationID, userID)
 	if err != nil {
 		return nil, false, err
@@ -207,7 +187,6 @@ func (s *conversationService) ListMessages(userID uuid.UUID, conversationID uuid
 }
 
 func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.UUID, req dto.SendMessageRequest) (*dto.MessageResponse, error) {
-	// Verify membership
 	member, err := s.convRepo.GetMember(conversationID, userID)
 	if err != nil {
 		return nil, err
@@ -230,22 +209,20 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 		}
 	}
 	msg := &model.Message{
-		ConversationID: conversationID,
-		SenderID:       userID,
-		Body:           text,
-		Status:         "sent",
-		AttachmentPath: req.AttachmentPath,
-		AttachmentName: req.AttachmentName,
+		ConversationID:     conversationID,
+		SenderID:           userID,
+		Body:               text,
+		Status:             "sent",
+		AttachmentPath:     req.AttachmentPath,
+		AttachmentName:     req.AttachmentName,
 		AttachmentMimeType: req.AttachmentMimeType,
-		AttachmentSize: req.AttachmentSize,
-		AttachmentType: req.AttachmentType,
+		AttachmentSize:     req.AttachmentSize,
+		AttachmentType:     req.AttachmentType,
 	}
 
 	if err := s.convRepo.CreateMessage(msg); err != nil {
 		return nil, err
 	}
-
-	// Update conversation last_message_at
 	_ = s.convRepo.UpdateLastMessageAt(conversationID)
 
 	sender := "them"
@@ -262,8 +239,6 @@ func (s *conversationService) SendMessage(userID uuid.UUID, conversationID uuid.
 	if msg.AttachmentPath != "" {
 		response.Attachment = s.buildAttachmentResponse(msg.AttachmentPath, msg.AttachmentName, msg.AttachmentMimeType, msg.AttachmentSize, msg.AttachmentType)
 	}
-
-	// Trigger Firebase Realtime Database push asynchronously
 	firebasePath := fmt.Sprintf("chats/direct/%s/messages", conversationID.String())
 	utils.PushToFirebaseRealtime(firebasePath, response, s.cfg)
 
@@ -316,8 +291,6 @@ func (s *conversationService) MarkRead(userID uuid.UUID, conversationID uuid.UUI
 	if member == nil {
 		return errors.New("not a member of this conversation")
 	}
-
-	// Get latest message to mark as last read
 	messages, err := s.convRepo.ListMessages(conversationID, 1, "")
 	if err != nil {
 		return err
@@ -330,7 +303,6 @@ func (s *conversationService) MarkRead(userID uuid.UUID, conversationID uuid.UUI
 }
 
 func (s *conversationService) buildConversationResponse(conv *model.Conversation, currentUserID uuid.UUID) (*dto.ConversationResponse, error) {
-	// Find the other participant
 	var name, role, avatar string
 	for _, m := range conv.Members {
 		if m.UserID != currentUserID {
@@ -340,8 +312,6 @@ func (s *conversationService) buildConversationResponse(conv *model.Conversation
 			break
 		}
 	}
-
-	// Get last message
 	var lastMessageText string
 	messages, err := s.convRepo.ListMessages(conv.ID, 1, "")
 	if err == nil && len(messages) > 0 {
@@ -487,15 +457,15 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 	}
 
 	msg := model.GroupMessage{
-		GroupChatID:     gc.ID,
-		SenderID:        &userID,
-		IsSystemMessage: false,
-		Content:         content,
-		AttachmentPath: req.AttachmentPath,
-		AttachmentName: req.AttachmentName,
+		GroupChatID:        gc.ID,
+		SenderID:           &userID,
+		IsSystemMessage:    false,
+		Content:            content,
+		AttachmentPath:     req.AttachmentPath,
+		AttachmentName:     req.AttachmentName,
 		AttachmentMimeType: req.AttachmentMimeType,
-		AttachmentSize: req.AttachmentSize,
-		AttachmentType: req.AttachmentType,
+		AttachmentSize:     req.AttachmentSize,
+		AttachmentType:     req.AttachmentType,
 	}
 
 	if err := s.convRepo.CreateGroupMessage(&msg); err != nil {
@@ -518,8 +488,6 @@ func (s *conversationService) SendGroupMessage(userID uuid.UUID, groupChatID uui
 	if msg.AttachmentPath != "" {
 		response.Attachment = s.buildAttachmentResponse(msg.AttachmentPath, msg.AttachmentName, msg.AttachmentMimeType, msg.AttachmentSize, msg.AttachmentType)
 	}
-
-	// Trigger Firebase Realtime Database push asynchronously
 	firebasePath := fmt.Sprintf("chats/groups/%s/messages", gc.ID.String())
 	utils.PushToFirebaseRealtime(firebasePath, response, s.cfg)
 
@@ -554,7 +522,6 @@ func (s *conversationService) UploadGroupAttachment(userID uuid.UUID, groupChatI
 }
 
 func (s *conversationService) DeleteMessage(userID uuid.UUID, messageID uuid.UUID) error {
-	// 1. Try to find message in Direct Messages
 	msg, err := s.convRepo.GetMessageByID(messageID)
 	if err == nil && msg != nil {
 		if msg.SenderID != userID {
@@ -564,8 +531,6 @@ func (s *conversationService) DeleteMessage(userID uuid.UUID, messageID uuid.UUI
 		if err := s.convRepo.DeleteMessage(msg.ID); err != nil {
 			return err
 		}
-
-		// Broadcast delete event to Firebase Realtime Database
 		firebasePath := fmt.Sprintf("chats/direct/%s/messages", msg.ConversationID.String())
 		utils.PushToFirebaseRealtime(firebasePath, map[string]interface{}{
 			"event":      "message_deleted",
@@ -575,8 +540,6 @@ func (s *conversationService) DeleteMessage(userID uuid.UUID, messageID uuid.UUI
 
 		return nil
 	}
-
-	// 2. Try to find message in Group Messages
 	gmsg, err := s.convRepo.GetGroupMessageByID(messageID)
 	if err == nil && gmsg != nil {
 		if gmsg.SenderID == nil || *gmsg.SenderID != userID {
@@ -586,8 +549,6 @@ func (s *conversationService) DeleteMessage(userID uuid.UUID, messageID uuid.UUI
 		if err := s.convRepo.DeleteGroupMessage(gmsg.ID); err != nil {
 			return err
 		}
-
-		// Broadcast delete event to Firebase Realtime Database
 		firebasePath := fmt.Sprintf("chats/groups/%s/messages", gmsg.GroupChatID.String())
 		utils.PushToFirebaseRealtime(firebasePath, map[string]interface{}{
 			"event":      "message_deleted",

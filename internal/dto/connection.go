@@ -6,18 +6,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// --- Connection DTOs ---
-
 type SendConnectionRequest struct {
 	TargetUserID uuid.UUID `json:"target_user_id" binding:"required"`
 }
 
 type ConnectionUserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	FullName  string    `json:"fullName"`
-	Role      string    `json:"role"`
-	Affiliation string  `json:"affiliation"`
-	AvatarURL string    `json:"avatar_url"`
+	ID          uuid.UUID `json:"id"`
+	FullName    string    `json:"fullName"`
+	Role        string    `json:"role"`
+	Affiliation string    `json:"affiliation"`
+	AvatarURL   string    `json:"avatar_url"`
 }
 
 type ConnectionResponse struct {
@@ -35,11 +33,11 @@ type ConnectionRequestResponse struct {
 }
 
 type UserSuggestionResponse struct {
-	ID             uuid.UUID `json:"id"`
-	FullName       string    `json:"fullName"`
-	Role           string    `json:"role"`
-	Affiliation    string    `json:"affiliation"`
-	Expertise      string    `json:"expertise"`
-	AvatarURL      string    `json:"avatar_url"`
-	MutualCount    int64     `json:"mutual_count"`
+	ID          uuid.UUID `json:"id"`
+	FullName    string    `json:"fullName"`
+	Role        string    `json:"role"`
+	Affiliation string    `json:"affiliation"`
+	Expertise   string    `json:"expertise"`
+	AvatarURL   string    `json:"avatar_url"`
+	MutualCount int64     `json:"mutual_count"`
 }

@@ -51,8 +51,6 @@ func (h *ProjectHandler) CreateFromDiscussion(c *gin.Context) {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	// Wait, FE expects full CollaborationProject object. Let's fetch it.
 	project, err := h.projService.GetByID(id)
 	if err != nil {
 		utils.JSONResponse(c, http.StatusCreated, "Project created from discussion", gin.H{"id": id}, nil)
@@ -412,12 +410,6 @@ func (h *ProjectHandler) RejectCollabRequest(c *gin.Context) {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "Invalid collaboration request ID format")
 		return
 	}
-
-	// var req dto.RejectCollaborationRequest
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	utils.ValidationErrorResponse(c, err)
-	// 	return
-	// }
 
 	res, err := h.projService.RejectCollabRequest(requestID, userID)
 	if err != nil {

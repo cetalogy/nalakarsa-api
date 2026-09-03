@@ -10,8 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 )
-
-// ipLimiter stores a rate limiter per IP address
 type ipLimiter struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
@@ -23,7 +21,6 @@ var (
 )
 
 func init() {
-	// Cleanup stale entries every 3 minutes
 	go func() {
 		for {
 			time.Sleep(3 * time.Minute)
@@ -52,10 +49,6 @@ func getVisitor(ip string, r rate.Limit, b int) *rate.Limiter {
 	v.lastSeen = time.Now()
 	return v.limiter
 }
-
-// RateLimiter creates a rate limiting middleware.
-// rps: requests per second allowed
-// burst: maximum burst size
 func RateLimiter(rps float64, burst int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limiter := getVisitor(c.ClientIP(), rate.Limit(rps), burst)

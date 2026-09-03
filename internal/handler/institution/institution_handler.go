@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"nalakarsa/internal/service/institution"
 	"nalakarsa/internal/dto"
+	"nalakarsa/internal/service/institution"
 	"nalakarsa/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -18,9 +18,15 @@ type InstitutionHandler struct {
 
 func (h *InstitutionHandler) Create(c *gin.Context) {
 	var req dto.CreateReferenceRequest
-	if err := c.ShouldBindJSON(&req); err != nil { utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "name is required") ; return }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, "name is required")
+		return
+	}
 	item, err := h.institutionService.CreateInstitution(req.Name)
-	if err != nil { utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error()); return }
+	if err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	utils.JSONResponse(c, http.StatusCreated, "Institution created successfully", item, nil)
 }
 

@@ -6,9 +6,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
-
-// Project represents a collaboration project/opportunity.
-// Status lifecycle: draft → open → in_review → active → completed → archived
 type Project struct {
 	ID                 uuid.UUID      `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	OwnerID            uuid.UUID      `gorm:"type:uuid;index;not null"`
@@ -25,8 +22,6 @@ type Project struct {
 	CreatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt          time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
-
-	// Relations
 	Owner        User                 `gorm:"foreignKey:OwnerID;constraint:OnDelete:CASCADE"`
 	Members      []ProjectMember      `gorm:"foreignKey:ProjectID;constraint:OnDelete:CASCADE"`
 	Applications []ProjectApplication `gorm:"foreignKey:ProjectID;constraint:OnDelete:CASCADE"`

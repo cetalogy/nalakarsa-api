@@ -1,7 +1,6 @@
-package notificationcommon
+package constant
 
 const (
-	// Notification Types
 	TypeConnectionRequest   = "connection_request"
 	TypeConnectionAccepted  = "connection_accepted"
 	TypeDiscussionReply     = "discussion_reply"
@@ -10,11 +9,9 @@ const (
 	TypeProjectStatusChange = "project_status_change"
 	TypeFollow              = "follow"
 	TypeCollaboration       = "collaboration"
-
-	// Resource Types
-	ResourceDiscussion          = "discussion"
-	ResourceProject             = "project"
-	ResourceConnection          = "connection"
-	ResourceUser                = "user"
+	ResourceDiscussion           = "discussion"
+	ResourceProject              = "project"
+	ResourceConnection           = "connection"
+	ResourceUser                 = "user"
 	ResourceCollaborationRequest = "collaboration_request"
 )

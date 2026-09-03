@@ -116,8 +116,6 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 		utils.ValidationErrorResponse(c, err)
 		return
 	}
-
-	// Map Text to Body if Text is provided (for FE compatibility)
 	if req.Text != "" {
 		req.Body = req.Text
 	}
@@ -321,4 +319,3 @@ func (h *ConversationHandler) DeleteMessage(c *gin.Context) {
 
 	utils.JSONResponse(c, http.StatusOK, "Message deleted successfully", nil, nil)
 }
-

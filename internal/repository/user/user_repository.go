@@ -44,7 +44,6 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 func (r *pgUserRepository) Create(u *model.User) error {
-	// Normalize email to lowercase
 	u.Email = strings.ToLower(strings.TrimSpace(u.Email))
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
@@ -86,18 +85,12 @@ func (r *pgUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, 
 	}
 
 	trimmedClean := strings.TrimPrefix(trimmed, "user_")
-
-	// 1. Try parsing as direct UUID
 	if uid, err := uuid.Parse(trimmedClean); err == nil {
 		return r.GetByID(uid)
 	}
-
-	// 2. Try lookup by email
 	if strings.Contains(trimmed, "@") {
 		return r.GetByEmail(trimmed)
 	}
-
-	// 3. Try lookup by full_name exact or ILIKE
 	var u model.User
 	err := r.db.Where("LOWER(TRIM(full_name)) = LOWER(TRIM(?))", trimmedClean).First(&u).Error
 	if err == nil {
@@ -156,13 +149,9 @@ func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]mo
 		searchTerm := "%" + search + "%"
 		query = query.Where("full_name ILIKE ? OR affiliation ILIKE ? OR expertise ILIKE ?", searchTerm, searchTerm, searchTerm)
 	}
-
-	// Count total records
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-
-	// Fetch paginated results
 	offset := (page - 1) * limit
 	err := query.Limit(limit).Offset(offset).Order("users.created_at desc").Find(&users).Error
 	if err != nil {
@@ -173,7 +162,6 @@ func (r *pgUserRepository) ListUsers(search, role string, page, limit int) ([]mo
 }
 
 func (r *pgUserRepository) CreateRefreshToken(rt *model.RefreshToken) error {
-	// Remove expired sessions before creating a new one.
 	if err := r.db.Where("expires_at <= ?", time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
 		return err
 	}
@@ -181,7 +169,6 @@ func (r *pgUserRepository) CreateRefreshToken(rt *model.RefreshToken) error {
 }
 
 func (r *pgUserRepository) GetRefreshToken(token string) (*model.RefreshToken, error) {
-	// Opportunistically clean all expired refresh sessions on refresh requests.
 	if err := r.db.Where("expires_at <= ?", time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
 		return nil, err
 	}
@@ -217,8 +204,6 @@ func (r *pgUserRepository) DeleteOldestRefreshTokensByUser(userID uuid.UUID, kee
 	if keepLatest < 0 {
 		keepLatest = 0
 	}
-
-	// Cleanup expired refresh tokens first so active limit focuses on valid sessions.
 	if err := r.db.Where("user_id = ? AND expires_at <= ?", userID, time.Now()).Delete(&model.RefreshToken{}).Error; err != nil {
 		return err
 	}
@@ -248,7 +233,6 @@ func (r *pgUserRepository) ToggleFollow(followerID, followingID uuid.UUID) (bool
 	err := r.db.Where("follower_id = ? AND following_id = ?", followerID, followingID).First(&existing).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Not following yet -> Create follow
 			newFollow := model.UserFollower{
 				FollowerID:  followerID,
 				FollowingID: followingID,
@@ -260,8 +244,6 @@ func (r *pgUserRepository) ToggleFollow(followerID, followingID uuid.UUID) (bool
 		}
 		return false, err
 	}
-
-	// Already following -> Unfollow
 	if deleteErr := r.db.Where("follower_id = ? AND following_id = ?", followerID, followingID).Delete(&model.UserFollower{}).Error; deleteErr != nil {
 		return false, deleteErr
 	}

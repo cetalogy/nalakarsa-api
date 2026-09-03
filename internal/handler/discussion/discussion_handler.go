@@ -18,8 +18,6 @@ type DiscussionHandler struct {
 func NewDiscussionHandler(discService discussionservice.DiscussionService) *DiscussionHandler {
 	return &DiscussionHandler{discService: discService}
 }
-
-// getCurrentUserID tries to extract user_id from context (may be nil for public endpoints)
 func getCurrentUserID(c *gin.Context) *uuid.UUID {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
@@ -364,8 +362,6 @@ func (h *DiscussionHandler) MarkCollaboration(c *gin.Context) {
 		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
 		return
 	}
-
-	// Fetch updated discussion to return as response as per FE request
 	disc, err := h.discService.GetByID(discussionID, &userID)
 	if err != nil {
 		utils.JSONResponse(c, http.StatusOK, "Marked as collaboration", nil, nil)

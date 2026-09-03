@@ -16,7 +16,5 @@ type ProjectMilestone struct {
 	CompletedAt *time.Time `gorm:"type:timestamptz"`
 	CreatedAt   time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt   time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP"`
-
-	// Relations
 	Assignee *User `gorm:"foreignKey:AssigneeID;constraint:OnDelete:SET NULL"`
 }

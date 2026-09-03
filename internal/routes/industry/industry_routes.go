@@ -1,8 +1,8 @@
 package industryroutes
 
 import (
-	industryhandler "nalakarsa/internal/handler/industry"
 	"github.com/gin-gonic/gin"
+	industryhandler "nalakarsa/internal/handler/industry"
 )
 
 func RegisterRoutes(public *gin.RouterGroup, handler *industryhandler.IndustryHandler) {
