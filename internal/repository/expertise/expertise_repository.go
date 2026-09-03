@@ -9,7 +9,7 @@ import (
 )
 
 type ExpertiseRepository interface {
-	Search(search string, limit int) ([]model.Expertise, error)
+	Search(search, category string, limit int) ([]model.Expertise, error)
 }
 
 type expertiseRepository struct {
@@ -20,11 +20,14 @@ func NewExpertiseRepository(db *gorm.DB) ExpertiseRepository {
 	return &expertiseRepository{db: db}
 }
 
-func (r *expertiseRepository) Search(search string, limit int) ([]model.Expertise, error) {
+func (r *expertiseRepository) Search(search, category string, limit int) ([]model.Expertise, error) {
 	if limit <= 0 || limit > 30 {
 		limit = 10
 	}
 	query := r.db.Where("is_active = ?", true)
+	if category = strings.TrimSpace(category); category != "" {
+		query = query.Where("category = ?", category)
+	}
 	search = strings.TrimSpace(search)
 	if search != "" {
 		like := "%" + search + "%"

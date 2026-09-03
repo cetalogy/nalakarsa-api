@@ -16,6 +16,7 @@ import (
 	homepagehandler "nalakarsa/internal/handler/homepage"
 	institutionhandler "nalakarsa/internal/handler/institution"
 	locationhandler "nalakarsa/internal/handler/location"
+	industryhandler "nalakarsa/internal/handler/industry"
 	knowledgehandler "nalakarsa/internal/handler/knowledge"
 	notificationhandler "nalakarsa/internal/handler/notification"
 	projecthandler "nalakarsa/internal/handler/project"
@@ -28,6 +29,7 @@ import (
 	homerepository "nalakarsa/internal/repository/homepage"
 	institutionrepository "nalakarsa/internal/repository/institution"
 	locationrepository "nalakarsa/internal/repository/location"
+	industryrepository "nalakarsa/internal/repository/industry"
 	knowledgerepository "nalakarsa/internal/repository/knowledge"
 	notificationrepository "nalakarsa/internal/repository/notification"
 	projectrepository "nalakarsa/internal/repository/project"
@@ -41,6 +43,7 @@ import (
 	homepageService "nalakarsa/internal/service/homepage"
 	institutionservice "nalakarsa/internal/service/institution"
 	locationservice "nalakarsa/internal/service/location"
+	industryservice "nalakarsa/internal/service/industry"
 	knowledgeservice "nalakarsa/internal/service/knowledge"
 	notificationservice "nalakarsa/internal/service/notification"
 	projectservice "nalakarsa/internal/service/project"
@@ -57,6 +60,7 @@ import (
 	homeroutes "nalakarsa/internal/routes/homepage"
 	institutionroutes "nalakarsa/internal/routes/institution"
 	locationroutes "nalakarsa/internal/routes/location"
+	industryroutes "nalakarsa/internal/routes/industry"
 	knowledgeroutes "nalakarsa/internal/routes/knowledge"
 	notificationroutes "nalakarsa/internal/routes/notification"
 	projectroutes "nalakarsa/internal/routes/project"
@@ -105,6 +109,7 @@ func main() {
 	homeRepo := homerepository.NewHomepageRepository(db)
 	institutionRepo := institutionrepository.NewInstitutionRepository(db)
 	locationRepo := locationrepository.NewLocationRepository()
+	industryRepo := industryrepository.NewIndustryRepository(db)
 	knowledgeRepo := knowledgerepository.NewKnowledgeRepository(db)
 
 	// Services
@@ -120,6 +125,7 @@ func main() {
 	homeService := homepageService.NewHomepageService(homeRepo)
 	institutionService := institutionservice.NewInstitutionService(institutionRepo)
 	locationService := locationservice.NewLocationService(locationRepo)
+	industryService := industryservice.NewIndustryService(industryRepo)
 	knowledgeService := knowledgeservice.NewKnowledgeService(knowledgeRepo)
 
 	// Handlers
@@ -135,6 +141,7 @@ func main() {
 	homeHandler := homepagehandler.NewHomepageHandler(homeService)
 	institutionHandler := institutionhandler.NewInstitutionHandler(institutionService)
 	locationHandler := locationhandler.NewLocationHandler(locationService)
+	industryHandler := industryhandler.NewIndustryHandler(industryService)
 	knowledgeHandler := knowledgehandler.NewKnowledgeHandler(knowledgeService)
 
 	// 5. Setup Routes
@@ -151,6 +158,7 @@ func main() {
 	projectroutes.RegisterRoutes(v1, protected, projHandler)
 	institutionroutes.RegisterRoutes(v1, institutionHandler)
 	locationroutes.RegisterRoutes(v1, locationHandler)
+	industryroutes.RegisterRoutes(v1, industryHandler)
 	knowledgeroutes.RegisterRoutes(v1, knowledgeHandler)
 	conversationroutes.RegisterRoutes(protected, convHandler)
 	notificationroutes.RegisterRoutes(protected, notifHandler)

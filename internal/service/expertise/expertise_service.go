@@ -6,7 +6,7 @@ import (
 )
 
 type ExpertiseService interface {
-	Search(search string, limit int) ([]dto.ExpertiseSuggestion, error)
+	Search(search, category string, limit int) ([]dto.ExpertiseSuggestion, error)
 }
 
 type expertiseService struct {
@@ -17,8 +17,8 @@ func NewExpertiseService(repo expertiserepository.ExpertiseRepository) Expertise
 	return &expertiseService{repo: repo}
 }
 
-func (s *expertiseService) Search(search string, limit int) ([]dto.ExpertiseSuggestion, error) {
-	items, err := s.repo.Search(search, limit)
+func (s *expertiseService) Search(search, category string, limit int) ([]dto.ExpertiseSuggestion, error) {
+	items, err := s.repo.Search(search, category, limit)
 	if err != nil {
 		return nil, err
 	}
