@@ -24,7 +24,7 @@ func (s *expertiseService) Search(search string, limit int) ([]dto.ExpertiseSugg
 	}
 	result := make([]dto.ExpertiseSuggestion, len(items))
 	for i, item := range items {
-		result[i] = dto.ExpertiseSuggestion{ID: item.ID, Name: item.Name, Category: item.Category}
+		result[i] = dto.ExpertiseSuggestion{ID: item.ID, Name: item.Name, Category: item.Category, Specification: item.Specification}
 	}
 	return result, nil
 }

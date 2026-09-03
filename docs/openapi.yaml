@@ -558,7 +558,30 @@ paths:
   /homepage/testimonials:
     get: { tags: [Reference], summary: Get homepage testimonials, responses: { '200': { description: Testimonials returned } } }
   /expertise/search:
-    get: { tags: [Reference], summary: Search expertise, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Expertise returned } } }
+    get:
+      tags: [Reference]
+      summary: Search expertise
+      description: Mencari keahlian, kategori, atau spesifikasi. Response mengembalikan seluruh hirarki keahlian.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Expertise returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        category: { type: string }
+                        specification: { type: string }
   /locations/search:
     get:
       tags: [Reference]
@@ -1119,7 +1142,7 @@ components:
     SubdomainID:
       name: subdomain_id
       in: query
-      required: true
+      required: false
       schema: { type: string, format: uuid }
     Page:
       name: page
@@ -1286,6 +1309,9 @@ components:
             properties:
               id: { type: string, format: uuid }
               subdomain_id: { type: string, format: uuid }
+              subdomain_name: { type: string }
+              domain_id: { type: string, format: uuid }
+              domain_name: { type: string }
               name: { type: string }
         message: { type: string }
 

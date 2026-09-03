@@ -33,6 +33,13 @@ func (r *knowledgeRepository) SearchSubdomains(domainID, search string, limit in
 
 func (r *knowledgeRepository) SearchFields(subdomainID, search string, limit int) ([]model.KnowledgeField, error) {
 	var result []model.KnowledgeField
-	q := r.db.Where("is_active = ? AND subdomain_id = ?", true, subdomainID); if strings.TrimSpace(search) != "" { q = q.Where("name ILIKE ?", "%"+strings.TrimSpace(search)+"%") }
-	err := q.Order("name ASC").Limit(normalizeLimit(limit)).Find(&result).Error; return result, err
+	q := r.db.Table("knowledge_fields AS f").
+		Select("f.*, s.name AS subdomain_name, s.domain_id, d.name AS domain_name").
+		Joins("JOIN knowledge_subdomains AS s ON s.id = f.subdomain_id").
+		Joins("JOIN knowledge_domains AS d ON d.id = s.domain_id").
+		Where("f.is_active = ? AND s.is_active = ? AND d.is_active = ?", true, true, true)
+	if strings.TrimSpace(subdomainID) != "" { q = q.Where("f.subdomain_id = ?", subdomainID) }
+	if strings.TrimSpace(search) != "" { q = q.Where("f.name ILIKE ?", "%"+strings.TrimSpace(search)+"%") }
+	err := q.Order("f.name ASC").Limit(normalizeLimit(limit)).Scan(&result).Error
+	return result, err
 }

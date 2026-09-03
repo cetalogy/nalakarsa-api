@@ -27,7 +27,8 @@ func (r *expertiseRepository) Search(search string, limit int) ([]model.Expertis
 	query := r.db.Where("is_active = ?", true)
 	search = strings.TrimSpace(search)
 	if search != "" {
-		query = query.Where("name ILIKE ? OR category ILIKE ?", "%"+search+"%", "%"+search+"%")
+		like := "%" + search + "%"
+		query = query.Where("name ILIKE ? OR category ILIKE ? OR specification ILIKE ?", like, like, like)
 	}
 	var result []model.Expertise
 	err := query.Order("name ASC").Limit(limit).Find(&result).Error
