@@ -6,10 +6,19 @@ import (
 	"nalakarsa/internal/model"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ExpertiseRepository interface {
 	Search(search string, limit int) ([]model.Expertise, error)
+	Create(item *model.Expertise) (*model.Expertise, error)
+}
+
+func (r *expertiseRepository) Create(item *model.Expertise) (*model.Expertise, error) {
+	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil { return nil, err }
+	var existing model.Expertise
+	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil { return nil, err }
+	return &existing, nil
 }
 
 type expertiseRepository struct {

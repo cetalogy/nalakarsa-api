@@ -5,10 +5,19 @@ import (
 
 	"nalakarsa/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type KnowledgeRepository interface {
 	SearchFields(search string, limit int) ([]model.KnowledgeField, error)
+	Create(item *model.KnowledgeField) (*model.KnowledgeField, error)
+}
+
+func (r *knowledgeRepository) Create(item *model.KnowledgeField) (*model.KnowledgeField, error) {
+	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil { return nil, err }
+	var existing model.KnowledgeField
+	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil { return nil, err }
+	return &existing, nil
 }
 
 type knowledgeRepository struct{ db *gorm.DB }

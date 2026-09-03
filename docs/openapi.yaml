@@ -580,6 +580,30 @@ paths:
                       properties:
                         id: { type: string, format: uuid }
                         name: { type: string }
+  /expertise:
+    post:
+      tags: [Reference]
+      summary: Create expertise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReferenceRequest' }
+      responses:
+        '201': { description: Expertise created or existing expertise returned }
+        '400': { description: Invalid name }
+  /knowledge:
+    post:
+      tags: [Reference]
+      summary: Create knowledge field
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReferenceRequest' }
+      responses:
+        '201': { description: Knowledge field created or existing field returned }
+        '400': { description: Invalid name }
   /industries/search:
     get:
       tags: [Reference]
@@ -591,6 +615,18 @@ paths:
       responses:
         '200':
           description: Industry suggestions returned
+  /industries:
+    post:
+      tags: [Reference]
+      summary: Create industry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReferenceRequest' }
+      responses:
+        '201': { description: Industry created or existing industry returned }
+        '400': { description: Invalid name }
   /locations/search:
     get:
       tags: [Reference]
@@ -623,7 +659,19 @@ paths:
       responses: { '200': { description: Cities returned } }
   /institutions/search:
     get: { tags: [Reference], summary: Search institutions, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Institutions returned } } }
-  /knowledge/fields/search:
+  /institutions:
+    post:
+      tags: [Reference]
+      summary: Create institution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReferenceRequest' }
+      responses:
+        '201': { description: Institution created or existing institution returned }
+        '400': { description: Invalid name }
+  /knowledge/search:
     get:
       tags: [Reference]
       summary: Search knowledge fields
@@ -1130,6 +1178,15 @@ components:
       in: query
       schema: { type: string }
   schemas:
+    CreateReferenceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: Universitas Contoh
     SendMessageRequest:
       type: object
       properties:

@@ -5,10 +5,19 @@ import (
 
 	"nalakarsa/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type InstitutionRepository interface {
 	Search(search string, limit int) ([]model.Institution, error)
+	Create(item *model.Institution) (*model.Institution, error)
+}
+
+func (r *institutionRepository) Create(item *model.Institution) (*model.Institution, error) {
+	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil { return nil, err }
+	var existing model.Institution
+	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil { return nil, err }
+	return &existing, nil
 }
 
 type institutionRepository struct{ db *gorm.DB }

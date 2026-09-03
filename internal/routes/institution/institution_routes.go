@@ -8,4 +8,5 @@ import (
 
 func RegisterRoutes(public *gin.RouterGroup, h *institutionhandler.InstitutionHandler) {
 	public.GET("/institutions/search", h.Search)
+	public.POST("/institutions", h.Create)
 }

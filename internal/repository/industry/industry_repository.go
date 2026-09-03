@@ -5,10 +5,19 @@ import (
 
 	"nalakarsa/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type IndustryRepository interface {
 	Search(search string, limit int) ([]model.Industry, error)
+	Create(item *model.Industry) (*model.Industry, error)
+}
+
+func (r *industryRepository) Create(item *model.Industry) (*model.Industry, error) {
+	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil { return nil, err }
+	var existing model.Industry
+	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil { return nil, err }
+	return &existing, nil
 }
 
 type industryRepository struct{ db *gorm.DB }

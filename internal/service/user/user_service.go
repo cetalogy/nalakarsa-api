@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	notificationcommon "nalakarsa/internal/common/notification"
 	"nalakarsa/internal/dto"
@@ -104,26 +105,15 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		return errors.New("user not found")
 	}
 
-	firstName := req.FirstName
-	if firstName == "" {
-		firstName = existingUser.FirstName
-	}
-
-	middleName := req.MiddleName
-	var middleNamePtr *string
-	if middleName != "" {
+	firstName := updateValue(req.FirstName, existingUser.FirstName)
+	lastName := updateValue(req.LastName, existingUser.LastName)
+	middleNamePtr := existingUser.MiddleName
+	if req.MiddleName != nil {
+		middleName := strings.TrimSpace(*req.MiddleName)
 		middleNamePtr = &middleName
-	} else {
-		middleNamePtr = existingUser.MiddleName
 	}
-
-	lastName := req.LastName
-	if lastName == "" {
-		lastName = existingUser.LastName
-	}
-
-	fullName := req.FullName
-	if fullName == "" {
+	fullName := updateValue(req.FullName, existingUser.FullName)
+	if strings.TrimSpace(fullName) == "" {
 		if middleNamePtr != nil && *middleNamePtr != "" {
 			fullName = fmt.Sprintf("%s %s %s", firstName, *middleNamePtr, lastName)
 		} else {
@@ -131,45 +121,14 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 		}
 	}
 
-	prefixTitle := req.PrefixTitle
-	if prefixTitle == "" {
-		prefixTitle = existingUser.PrefixTitle
-	}
-
-	suffixTitle := req.SuffixTitle
-	if suffixTitle == "" {
-		suffixTitle = existingUser.SuffixTitle
-	}
-
-	affiliation := req.Affiliation
-	if affiliation == "" {
-		affiliation = existingUser.Affiliation
-	}
-
-	location := req.Location
-	if location == "" {
-		location = existingUser.Location
-	}
-
-	expertise := req.Expertise
-	if expertise == "" {
-		expertise = existingUser.Expertise
-	}
-
-	industry := req.Industry
-	if industry == "" {
-		industry = existingUser.Industry
-	}
-
-	bio := req.Bio
-	if bio == "" {
-		bio = existingUser.Bio
-	}
-
-	avatarURL := req.AvatarURL
-	if avatarURL == "" {
-		avatarURL = existingUser.AvatarURL
-	}
+	prefixTitle := updateValue(req.PrefixTitle, existingUser.PrefixTitle)
+	suffixTitle := updateValue(req.SuffixTitle, existingUser.SuffixTitle)
+	affiliation := updateValue(req.Affiliation, existingUser.Affiliation)
+	location := updateValue(req.Location, existingUser.Location)
+	expertise := updateValue(req.Expertise, existingUser.Expertise)
+	industry := updateValue(req.Industry, existingUser.Industry)
+	bio := updateValue(req.Bio, existingUser.Bio)
+	avatarURL := updateValue(req.AvatarURL, existingUser.AvatarURL)
 
 	u := &model.User{
 		ID:          userID,
@@ -188,6 +147,11 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 	}
 
 	return s.userRepo.UpdateProfile(u)
+}
+
+func updateValue(value *string, current string) string {
+	if value == nil { return current }
+	return strings.TrimSpace(*value)
 }
 
 func (s *userService) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
