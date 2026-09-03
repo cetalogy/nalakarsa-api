@@ -558,7 +558,30 @@ paths:
   /homepage/testimonials:
     get: { tags: [Reference], summary: Get homepage testimonials, responses: { '200': { description: Testimonials returned } } }
   /expertise/search:
-    get: { tags: [Reference], summary: Search expertise, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Expertise returned } } }
+    get:
+      tags: [Reference]
+      summary: Search expertise
+      description: Mencari keahlian, kategori, atau spesifikasi. Response mengembalikan seluruh hirarki keahlian.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Expertise returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        category: { type: string }
+                        specification: { type: string }
   /locations/search:
     get:
       tags: [Reference]
@@ -591,39 +614,6 @@ paths:
       responses: { '200': { description: Cities returned } }
   /institutions/search:
     get: { tags: [Reference], summary: Search institutions, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Institutions returned } } }
-  /knowledge/domains/search:
-    get:
-      tags: [Reference]
-      summary: Search knowledge domains
-      description: Mengambil daftar rumpun keilmuan untuk autocomplete registrasi.
-      parameters:
-        - $ref: '#/components/parameters/Search'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Knowledge domains returned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KnowledgeDomainResponse'
-  /knowledge/subdomains/search:
-    get:
-      tags: [Reference]
-      summary: Search knowledge subdomains
-      description: Mengambil sub-rumpun berdasarkan rumpun keilmuan yang dipilih.
-      parameters:
-        - $ref: '#/components/parameters/DomainID'
-        - $ref: '#/components/parameters/Search'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Knowledge subdomains returned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KnowledgeSubdomainResponse'
-        '400':
-          description: domain_id is not a valid UUID
   /knowledge/fields/search:
     get:
       tags: [Reference]
@@ -1119,7 +1109,7 @@ components:
     SubdomainID:
       name: subdomain_id
       in: query
-      required: true
+      required: false
       schema: { type: string, format: uuid }
     Page:
       name: page
@@ -1253,29 +1243,6 @@ components:
                   type: string
                 avatar_url:
                   type: string
-    KnowledgeDomainResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              id: { type: string, format: uuid }
-              name: { type: string }
-        message: { type: string }
-    KnowledgeSubdomainResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            properties:
-              id: { type: string, format: uuid }
-              domain_id: { type: string, format: uuid }
-              name: { type: string }
-        message: { type: string }
     KnowledgeFieldResponse:
       type: object
       properties:
@@ -1286,6 +1253,9 @@ components:
             properties:
               id: { type: string, format: uuid }
               subdomain_id: { type: string, format: uuid }
+              subdomain_name: { type: string }
+              domain_id: { type: string, format: uuid }
+              domain_name: { type: string }
               name: { type: string }
         message: { type: string }
 
