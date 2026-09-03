@@ -564,6 +564,11 @@ paths:
       description: Mencari keahlian, kategori, atau spesifikasi. Response mengembalikan seluruh hirarki keahlian.
       parameters:
         - $ref: '#/components/parameters/Search'
+        - name: category
+          in: query
+          required: false
+          description: Filter kategori keahlian, gunakan PENDUKUNG AKADEMIK untuk Profesional.
+          schema: { type: string }
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -582,6 +587,17 @@ paths:
                         name: { type: string }
                         category: { type: string }
                         specification: { type: string }
+  /industries/search:
+    get:
+      tags: [Reference]
+      summary: Search official industry sectors
+      description: Mencari sektor industri resmi untuk role Praktisi.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Industry suggestions returned
   /locations/search:
     get:
       tags: [Reference]

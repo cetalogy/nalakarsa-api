@@ -26,7 +26,7 @@ func (h *ExpertiseHandler) Search(c *gin.Context) {
 			limit = parsed
 		}
 	}
-	result, err := h.service.Search(strings.TrimSpace(c.Query("q")), limit)
+	result, err := h.service.Search(strings.TrimSpace(c.Query("q")), strings.TrimSpace(c.Query("category")), limit)
 	if err != nil {
 		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
