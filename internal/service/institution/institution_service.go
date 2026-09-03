@@ -10,7 +10,7 @@ import (
 )
 
 type InstitutionService interface {
-	SearchInstitutions(search string, limit int) ([]dto.InstitutionSuggestion, error)
+	SearchInstitutions(search string, page, limit int) ([]dto.InstitutionSuggestion, int64, error)
 	CreateInstitution(name string) (*dto.InstitutionSuggestion, error)
 }
 
@@ -34,10 +34,10 @@ func NewInstitutionService(institutionRepo institutionrepository.InstitutionRepo
 	return &institutionService{institutionRepo: institutionRepo}
 }
 
-func (s *institutionService) SearchInstitutions(search string, limit int) ([]dto.InstitutionSuggestion, error) {
-	institutions, err := s.institutionRepo.Search(search, limit)
+func (s *institutionService) SearchInstitutions(search string, page, limit int) ([]dto.InstitutionSuggestion, int64, error) {
+	institutions, total, err := s.institutionRepo.Search(search, page, limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	res := make([]dto.InstitutionSuggestion, len(institutions))
@@ -55,5 +55,5 @@ func (s *institutionService) SearchInstitutions(search string, limit int) ([]dto
 		}
 	}
 
-	return res, nil
+	return res, total, nil
 }
