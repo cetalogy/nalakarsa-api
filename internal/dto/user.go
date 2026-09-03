@@ -72,8 +72,11 @@ type UpdateProfileRequest struct {
 	PrefixTitle *string `json:"prefixTitle"`
 	SuffixTitle *string `json:"suffixTitle"`
 	Affiliation *string `json:"affiliation"`
+	Institution *string `json:"institution"`
+	University  *string `json:"university"`
 	Location    *string `json:"location"`
 	Expertise   *string `json:"expertise"`
+	Field       *string `json:"field"`
 	Industry    *string `json:"industry"`
 	Bio         *string `json:"bio" binding:"max=500"`
 	AvatarURL   *string `json:"avatar_url"`

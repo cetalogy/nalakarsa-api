@@ -120,13 +120,15 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req dto.UpdateProfileReque
 
 	prefixTitle := updateValue(req.PrefixTitle, existingUser.PrefixTitle)
 	suffixTitle := updateValue(req.SuffixTitle, existingUser.SuffixTitle)
-	affiliation := updateValue(req.Affiliation, existingUser.Affiliation)
+	affiliationInput := firstValue(req.Affiliation, req.Institution, req.University)
+	expertiseInput := firstValue(req.Expertise, req.Field)
+	affiliation := updateValue(affiliationInput, existingUser.Affiliation)
 	location := updateValue(req.Location, existingUser.Location)
-	expertise := updateValue(req.Expertise, existingUser.Expertise)
+	expertise := updateValue(expertiseInput, existingUser.Expertise)
 	industry := updateValue(req.Industry, existingUser.Industry)
 	bio := updateValue(req.Bio, existingUser.Bio)
 	avatarURL := updateValue(req.AvatarURL, existingUser.AvatarURL)
-	values := []*string{req.FirstName, req.MiddleName, req.LastName, req.FullName, req.PrefixTitle, req.SuffixTitle, req.Affiliation, req.Location, req.Expertise, req.Industry, req.Bio}
+	values := []*string{req.FirstName, req.MiddleName, req.LastName, req.FullName, req.PrefixTitle, req.SuffixTitle, affiliationInput, req.Location, expertiseInput, req.Industry, req.Bio}
 	for _, value := range values {
 		if value != nil {
 			if err := contentfilter.Validate(*value); err != nil {
@@ -159,6 +161,15 @@ func updateValue(value *string, current string) string {
 		return current
 	}
 	return strings.TrimSpace(*value)
+}
+
+func firstValue(values ...*string) *string {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
 }
 
 func (s *userService) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
