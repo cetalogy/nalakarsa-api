@@ -561,14 +561,9 @@ paths:
     get:
       tags: [Reference]
       summary: Search expertise
-      description: Mencari keahlian, kategori, atau spesifikasi. Response mengembalikan seluruh hirarki keahlian.
+      description: Mencari bidang keahlian dari data spesifikasi.
       parameters:
         - $ref: '#/components/parameters/Search'
-        - name: category
-          in: query
-          required: false
-          description: Filter kategori keahlian, gunakan PENDUKUNG AKADEMIK untuk Profesional.
-          schema: { type: string }
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
@@ -585,8 +580,6 @@ paths:
                       properties:
                         id: { type: string, format: uuid }
                         name: { type: string }
-                        category: { type: string }
-                        specification: { type: string }
   /industries/search:
     get:
       tags: [Reference]
