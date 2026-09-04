@@ -19,6 +19,7 @@ import (
 	knowledgehandler "nalakarsa/internal/handler/knowledge"
 	locationhandler "nalakarsa/internal/handler/location"
 	notificationhandler "nalakarsa/internal/handler/notification"
+	organizationhandler "nalakarsa/internal/handler/organization"
 	projecthandler "nalakarsa/internal/handler/project"
 	userhandler "nalakarsa/internal/handler/user"
 	"nalakarsa/internal/middleware"
@@ -32,6 +33,7 @@ import (
 	knowledgerepository "nalakarsa/internal/repository/knowledge"
 	locationrepository "nalakarsa/internal/repository/location"
 	notificationrepository "nalakarsa/internal/repository/notification"
+	organizationrepository "nalakarsa/internal/repository/organization"
 	projectrepository "nalakarsa/internal/repository/project"
 	userrepository "nalakarsa/internal/repository/user"
 	authservice "nalakarsa/internal/service/auth"
@@ -46,6 +48,7 @@ import (
 	knowledgeservice "nalakarsa/internal/service/knowledge"
 	locationservice "nalakarsa/internal/service/location"
 	notificationservice "nalakarsa/internal/service/notification"
+	organizationservice "nalakarsa/internal/service/organization"
 	projectservice "nalakarsa/internal/service/project"
 	userservice "nalakarsa/internal/service/user"
 	"nalakarsa/internal/utils"
@@ -63,6 +66,7 @@ import (
 	knowledgeroutes "nalakarsa/internal/routes/knowledge"
 	locationroutes "nalakarsa/internal/routes/location"
 	notificationroutes "nalakarsa/internal/routes/notification"
+	organizationroutes "nalakarsa/internal/routes/organization"
 	projectroutes "nalakarsa/internal/routes/project"
 	userroutes "nalakarsa/internal/routes/user"
 	"nalakarsa/seed"
@@ -97,6 +101,7 @@ func main() {
 	notifRepo := notificationrepository.NewNotificationRepository(db)
 	homeRepo := homerepository.NewHomepageRepository(db)
 	institutionRepo := institutionrepository.NewInstitutionRepository(db)
+	organizationRepo := organizationrepository.NewOrganizationRepository(db)
 	locationRepo := locationrepository.NewLocationRepository()
 	industryRepo := industryrepository.NewIndustryRepository(db)
 	knowledgeRepo := knowledgerepository.NewKnowledgeRepository(db)
@@ -111,6 +116,7 @@ func main() {
 	dashService := dashboardservice.NewDashboardService(projRepo, connRepo, convRepo, notifRepo)
 	homeService := homepageService.NewHomepageService(homeRepo)
 	institutionService := institutionservice.NewInstitutionService(institutionRepo)
+	organizationService := organizationservice.NewOrganizationService(organizationRepo)
 	locationService := locationservice.NewLocationService(locationRepo)
 	industryService := industryservice.NewIndustryService(industryRepo)
 	knowledgeService := knowledgeservice.NewKnowledgeService(knowledgeRepo)
@@ -125,6 +131,7 @@ func main() {
 	dashHandler := dashboardhandler.NewDashboardHandler(dashService)
 	homeHandler := homepagehandler.NewHomepageHandler(homeService)
 	institutionHandler := institutionhandler.NewInstitutionHandler(institutionService)
+	organizationHandler := organizationhandler.NewOrganizationHandler(organizationService)
 	locationHandler := locationhandler.NewLocationHandler(locationService)
 	industryHandler := industryhandler.NewIndustryHandler(industryService)
 	knowledgeHandler := knowledgehandler.NewKnowledgeHandler(knowledgeService)
@@ -140,6 +147,7 @@ func main() {
 	connectionroutes.RegisterRoutes(protected, connHandler)
 	projectroutes.RegisterRoutes(v1, protected, projHandler)
 	institutionroutes.RegisterRoutes(v1, institutionHandler)
+	organizationroutes.RegisterRoutes(v1, organizationHandler)
 	locationroutes.RegisterRoutes(v1, locationHandler)
 	industryroutes.RegisterRoutes(v1, industryHandler)
 	knowledgeroutes.RegisterRoutes(v1, knowledgeHandler)

@@ -74,6 +74,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			&model.User{},
 			&model.UserFollower{},
 			&model.Institution{},
+			&model.Organization{},
 			&model.Expertise{},
 			&model.Industry{},
 			&model.KnowledgeField{},
@@ -124,6 +125,19 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		`DROP TABLE IF EXISTS knowledge_subdomains`,
 		`DROP TABLE IF EXISTS knowledge_domains`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_field_name ON knowledge_fields (name)`,
+		`ALTER TABLE organizations DROP COLUMN IF EXISTS type`,
+		`INSERT INTO organizations (name, country_code, country, is_active) VALUES
+			('Badan Pusat Statistik', 'ID', 'Indonesia', true),
+			('Badan Riset dan Inovasi Nasional', 'ID', 'Indonesia', true),
+			('Kementerian Pendidikan Dasar dan Menengah', 'ID', 'Indonesia', true),
+			('Kementerian Pendidikan Tinggi, Sains, dan Teknologi', 'ID', 'Indonesia', true),
+			('Kementerian Ketenagakerjaan Republik Indonesia', 'ID', 'Indonesia', true),
+			('PT Astra International Tbk', 'ID', 'Indonesia', true),
+			('PT Bank Mandiri (Persero) Tbk', 'ID', 'Indonesia', true),
+			('PT Bank Rakyat Indonesia (Persero) Tbk', 'ID', 'Indonesia', true),
+			('PT PLN (Persero)', 'ID', 'Indonesia', true),
+			('PT Telkom Indonesia (Persero) Tbk', 'ID', 'Indonesia', true)
+		ON CONFLICT (name) DO NOTHING`,
 		`INSERT INTO industries (name, is_active) VALUES
 			('Pertanian, Kehutanan dan Perikanan', true),
 			('Pertambangan dan Penggalian', true),
