@@ -658,7 +658,7 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses: { '200': { description: Cities returned } }
   /institutions/search:
-    get: { tags: [Reference], summary: Search institutions, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Institutions returned } } }
+    get: { tags: [Reference], summary: Search institutions, parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' } ], responses: { '200': { description: Institutions returned } } }
   /institutions:
     post:
       tags: [Reference]
@@ -671,6 +671,35 @@ paths:
       responses:
         '201': { description: Institution created or existing institution returned }
         '400': { description: Invalid name }
+  /organizations/search:
+    get:
+      tags: [Reference]
+      summary: Search domestic organizations
+      description: Mengambil instansi pemerintah dan perusahaan dalam negeri dengan pagination.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Organizations returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationResponse'
+  /organizations:
+    post:
+      tags: [Reference]
+      summary: Create domestic organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+      responses:
+        '201': { description: Organization created or existing organization returned }
+        '400': { description: Invalid organization data }
   /knowledge/search:
     get:
       tags: [Reference]
@@ -1187,6 +1216,40 @@ components:
           minLength: 2
           maxLength: 255
           example: Universitas Contoh
+    CreateOrganizationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: PT Contoh Indonesia
+    OrganizationResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationSuggestion'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+        message:
+          type: string
+    OrganizationSuggestion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        countryCode: { type: string, example: ID }
+        country: { type: string, example: Indonesia }
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer, example: 1 }
+        total_pages: { type: integer, example: 2 }
+        total_items: { type: integer, format: int64, example: 10 }
+        limit: { type: integer, example: 10 }
     SendMessageRequest:
       type: object
       properties:
