@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"nalakarsa/internal/dto"
+	"nalakarsa/internal/reference"
 	locationrepository "nalakarsa/internal/repository/location"
 
 	"github.com/google/uuid"
@@ -25,6 +26,7 @@ func NewLocationService(locationRepo locationrepository.LocationRepository) Loca
 }
 
 func (s *locationService) SearchLocations(search, locationType string, provinceID string, limit int) ([]dto.LocationSuggestion, error) {
+	search = reference.NormalizeLocationSearch(search, locationType)
 	var parsedProvinceID *uuid.UUID
 	if strings.TrimSpace(provinceID) != "" {
 		id, err := uuid.Parse(provinceID)

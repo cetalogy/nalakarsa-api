@@ -15,7 +15,7 @@ type InstitutionService interface {
 }
 
 func (s *institutionService) CreateInstitution(name string) (*dto.InstitutionSuggestion, error) {
-	name, err := reference.NormalizeName(name)
+	name, err := reference.NormalizeInstitutionName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,9 @@ func NewInstitutionService(institutionRepo institutionrepository.InstitutionRepo
 }
 
 func (s *institutionService) SearchInstitutions(search string, page, limit int) ([]dto.InstitutionSuggestion, int64, error) {
+	if normalized, err := reference.NormalizeInstitutionName(search); err == nil {
+		search = normalized
+	}
 	institutions, total, err := s.institutionRepo.Search(search, page, limit)
 	if err != nil {
 		return nil, 0, err
