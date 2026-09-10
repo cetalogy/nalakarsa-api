@@ -1,0 +1,25 @@
+package reference
+
+var institutionAliases = map[string]string{
+	"unpas":                "Universitas Pasundan",
+	"univ. pasundan":       "Universitas Pasundan",
+	"universitas pasundan": "Universitas Pasundan",
+	"itb":                  "Institut Teknologi Bandung",
+	"ui":                   "Universitas Indonesia",
+	"ugm":                  "Universitas Gadjah Mada",
+	"ipb":                  "Institut Pertanian Bogor",
+	"unpad":                "Universitas Padjadjaran",
+	"upi":                  "Universitas Pendidikan Indonesia",
+	"its":                  "Institut Teknologi Sepuluh Nopember",
+	"undip":                "Universitas Diponegoro",
+	"unair":                "Universitas Airlangga",
+	"ub":                   "Universitas Brawijaya",
+	"uns":                  "Universitas Sebelas Maret",
+	"uny":                  "Universitas Negeri Yogyakarta",
+	"usu":                  "Universitas Sumatera Utara",
+	"unhas":                "Universitas Hasanuddin",
+	"unand":                "Universitas Andalas",
+	"untirta":              "Universitas Sultan Ageng Tirtayasa",
+	"telkom":               "Telkom University",
+	"binus":                "BINUS University",
+}

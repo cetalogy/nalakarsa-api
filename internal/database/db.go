@@ -126,6 +126,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		`DROP TABLE IF EXISTS knowledge_domains`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_field_name ON knowledge_fields (name)`,
 		`ALTER TABLE organizations DROP COLUMN IF EXISTS type`,
+		`UPDATE institutions SET name = 'Universitas Pasundan' WHERE lower(trim(name)) ~ '^((unpas)|(univ[.]?[[:space:]]+pasundan)|(universitas[[:space:]]+pasundan))$' AND NOT EXISTS (SELECT 1 FROM institutions WHERE lower(trim(name)) = 'universitas pasundan')`,
+		`DELETE FROM institutions WHERE lower(trim(name)) ~ '^((unpas)|(univ[.]?[[:space:]]+pasundan)|(universitas[[:space:]]+pasundan))$' AND lower(trim(name)) <> 'universitas pasundan'`,
 		`INSERT INTO organizations (name, country_code, country, is_active) VALUES
 			('Badan Pusat Statistik', 'ID', 'Indonesia', true),
 			('Badan Riset dan Inovasi Nasional', 'ID', 'Indonesia', true),

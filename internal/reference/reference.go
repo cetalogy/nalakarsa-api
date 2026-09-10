@@ -25,3 +25,14 @@ func NormalizeName(value string) (string, error) {
 	}
 	return name, nil
 }
+
+func NormalizeInstitutionName(value string) (string, error) {
+	name, err := NormalizeName(value)
+	if err != nil {
+		return "", err
+	}
+	if canonical, ok := institutionAliases[strings.ToLower(name)]; ok {
+		return canonical, nil
+	}
+	return name, nil
+}
