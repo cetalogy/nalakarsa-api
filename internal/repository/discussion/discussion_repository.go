@@ -177,10 +177,25 @@ func (r *pgDiscussionRepository) DeleteVote(userID, discussionID uuid.UUID) erro
 		if res.Error != nil {
 			return res.Error
 		}
-		if res.RowsAffected > 0 {
-			return tx.Model(&model.Discussion{}).
-				Where("id = ? AND upvote_count > 0", discussionID).
-				UpdateColumn("upvote_count", gorm.Expr("upvote_count - 1")).Error
+		if res.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		var voteCount int64
+		if err := tx.Model(&model.DiscussionVote{}).
+			Where("discussion_id = ?", discussionID).
+			Count(&voteCount).Error; err != nil {
+			return err
+		}
+
+		result := tx.Model(&model.Discussion{}).
+			Where("id = ?", discussionID).
+			UpdateColumn("upvote_count", voteCount)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
 		}
 		return nil
 	})

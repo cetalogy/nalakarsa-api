@@ -324,7 +324,13 @@ func (h *DiscussionHandler) Unvote(c *gin.Context) {
 	}
 
 	if err := h.discService.Unvote(userID, discussionID); err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "discussion not found" {
+			statusCode = http.StatusNotFound
+		} else if err.Error() == "upvote not found" {
+			statusCode = http.StatusConflict
+		}
+		utils.ErrorJSONResponseWithMessage(c, statusCode, err.Error())
 		return
 	}
 
