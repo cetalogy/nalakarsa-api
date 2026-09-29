@@ -107,15 +107,12 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	resetToken, err := h.authService.RequestPasswordReset(req)
+	_, err := h.authService.RequestPasswordReset(req)
 	if err != nil {
-		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	utils.JSONResponse(c, http.StatusOK, "Security verification successful", gin.H{
-		"reset_token": resetToken,
-		"expires_in":  900,
-	}, nil)
+	utils.JSONResponse(c, http.StatusOK, "Jika data valid, link reset password telah dikirim ke email Anda", nil, nil)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
@@ -130,4 +127,30 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 	utils.JSONResponse(c, http.StatusOK, "Password reset successfully", nil, nil)
+}
+
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	var req dto.VerifyEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, err)
+		return
+	}
+	if err := h.authService.VerifyEmail(req); err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusOK, "Email berhasil diverifikasi", nil, nil)
+}
+
+func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
+	var req dto.ResendVerificationEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, err)
+		return
+	}
+	if err := h.authService.ResendVerificationEmail(req); err != nil {
+		utils.ErrorJSONResponseWithMessage(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	utils.JSONResponse(c, http.StatusOK, "Jika email belum terverifikasi, kode verifikasi telah dikirim", nil, nil)
 }

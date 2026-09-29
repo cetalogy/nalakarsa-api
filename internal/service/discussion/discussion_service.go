@@ -82,8 +82,10 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 		HasUpvoted:         hasUpvoted,
 		Time:               disc.CreatedAt,
 		CreatedAt:          disc.CreatedAt,
+		AuthorID:           disc.User.ID,
 		Author:             disc.User.FullName,
 		Role:               disc.User.Role,
+		AvatarURL:          disc.User.AvatarURL,
 		SourceDiscussionID: disc.SourceDiscussionID,
 		Creator: dto.DiscussionCreator{
 			ID:        disc.User.ID,
@@ -160,8 +162,10 @@ func (s *discussionService) List(search, category, role, sort string, page, limi
 			UpvoteCount:        upvoteCount,
 			HasUpvoted:         hasUpvoted,
 			Time:               d.CreatedAt,
+			AuthorID:           d.User.ID,
 			Author:             d.User.FullName,
 			Role:               d.User.Role,
+			AvatarURL:          d.User.AvatarURL,
 			SourceDiscussionID: d.SourceDiscussionID,
 		}
 	}
@@ -317,6 +321,22 @@ func (s *discussionService) Vote(userID uuid.UUID, discussionID uuid.UUID) error
 }
 
 func (s *discussionService) Unvote(userID uuid.UUID, discussionID uuid.UUID) error {
+	disc, err := s.discRepo.GetByID(discussionID)
+	if err != nil {
+		return err
+	}
+	if disc == nil {
+		return errors.New("discussion not found")
+	}
+
+	hasVoted, err := s.discRepo.HasVoted(userID, discussionID)
+	if err != nil {
+		return err
+	}
+	if !hasVoted {
+		return errors.New("upvote not found")
+	}
+
 	return s.discRepo.DeleteVote(userID, discussionID)
 }
 

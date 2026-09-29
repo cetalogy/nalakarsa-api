@@ -73,8 +73,10 @@ type DiscussionResponse struct {
 	HasUpvoted         bool       `json:"has_upvoted"`
 	Time               time.Time  `json:"time"`
 	CreatedAt          time.Time  `json:"createdAt"`
+	AuthorID           uuid.UUID  `json:"author_id"`
 	Author             string     `json:"author"`
 	Role               string     `json:"role"`
+	AvatarURL          string     `json:"avatar_url"`
 	SourceDiscussionID *uuid.UUID `json:"sourceDiscussionId"`
 }
 
@@ -92,8 +94,10 @@ type DiscussionDetailResponse struct {
 	HasUpvoted         bool                      `json:"has_upvoted"`
 	Time               time.Time                 `json:"time"`
 	CreatedAt          time.Time                 `json:"createdAt"`
+	AuthorID           uuid.UUID                 `json:"author_id"`
 	Author             string                    `json:"author"`
 	Role               string                    `json:"role"`
+	AvatarURL          string                    `json:"avatar_url"`
 	SourceDiscussionID *uuid.UUID                `json:"sourceDiscussionId"`
 	Creator            DiscussionCreator         `json:"creator"`
 	RepliesList        []DiscussionReplyResponse `json:"repliesList"`

@@ -1,8 +1,15 @@
 package authservice
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
+	"math/big"
+	"net/smtp"
 	"strings"
 	"time"
 	"unicode"
@@ -25,6 +32,8 @@ type AuthService interface {
 	Logout(token string) error
 	RequestPasswordReset(req dto.ForgotPasswordRequest) (string, error)
 	ResetPassword(req dto.ResetPasswordRequest) error
+	VerifyEmail(req dto.VerifyEmailRequest) error
+	ResendVerificationEmail(req dto.ResendVerificationEmailRequest) error
 }
 
 type passwordResetClaims struct {
@@ -36,10 +45,11 @@ type passwordResetClaims struct {
 type authService struct {
 	userRepo userrepository.UserRepository
 	cfg      *config.Config
+	email    *emailSender
 }
 
 func NewAuthService(userRepo userrepository.UserRepository, cfg *config.Config) AuthService {
-	return &authService{userRepo: userRepo, cfg: cfg}
+	return &authService{userRepo: userRepo, cfg: cfg, email: newEmailSender(cfg)}
 }
 
 func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestContext) (*dto.AuthData, error) {
@@ -94,6 +104,13 @@ func (s *authService) Register(req dto.RegisterRequest, ctx *dto.AuthRequestCont
 
 	if err := s.userRepo.Create(u); err != nil {
 		return nil, err
+	}
+	if s.email != nil {
+		if err := s.sendVerificationEmail(u); err != nil {
+			logEmailStatus("VERIFICATION", u.Email, err)
+		} else {
+			logEmailStatus("VERIFICATION", u.Email, nil)
+		}
 	}
 	accessTokenPayload, err := utils.GenerateAccessToken(u.ID, u.Email, u.Role, s.cfg.JWTSecret, s.cfg.JWTAccessExpiration)
 	if err != nil {
@@ -304,6 +321,14 @@ func (s *authService) RequestPasswordReset(req dto.ForgotPasswordRequest) (strin
 	if err != nil {
 		return "", err
 	}
+	if s.email != nil {
+		resetLink := strings.TrimRight(s.cfg.FrontendURL, "/") + "/reset-password?token=" + signedToken
+		if err := s.email.sendPasswordReset(user.Email, user.FullName, resetLink); err != nil {
+			logEmailStatus("PASSWORD RESET", user.Email, err)
+			return "", fmt.Errorf("failed to send password reset email: %w", err)
+		}
+		logEmailStatus("PASSWORD RESET", user.Email, nil)
+	}
 
 	return signedToken, nil
 }
@@ -336,7 +361,91 @@ func (s *authService) ResetPassword(req dto.ResetPasswordRequest) error {
 		return err
 	}
 	user.PasswordHash = passwordHash
-	return s.userRepo.UpdateProfile(user)
+	if err := s.userRepo.UpdateProfile(user); err != nil {
+		return err
+	}
+	if err := s.userRepo.DeleteRefreshTokensByUserID(user.ID); err != nil {
+		return err
+	}
+	if s.email != nil {
+		if err := s.email.sendPasswordChanged(user.Email, user.FullName); err != nil {
+			logEmailStatus("PASSWORD CHANGED", user.Email, err)
+		} else {
+			logEmailStatus("PASSWORD CHANGED", user.Email, nil)
+		}
+	}
+	return nil
+}
+
+func (s *authService) VerifyEmail(req dto.VerifyEmailRequest) error {
+	user, err := s.userRepo.GetByEmail(strings.ToLower(strings.TrimSpace(req.Email)))
+	if err != nil || user == nil {
+		return errors.New("email atau kode verifikasi tidak valid")
+	}
+	if user.EmailVerifiedAt != nil || user.EmailVerificationExpiresAt == nil || time.Now().After(*user.EmailVerificationExpiresAt) {
+		return errors.New("kode verifikasi tidak valid atau sudah kedaluwarsa")
+	}
+	if hashVerificationCode(req.Code) != user.EmailVerificationCodeHash {
+		return errors.New("email atau kode verifikasi tidak valid")
+	}
+	if err := s.userRepo.MarkEmailVerified(user.ID); err != nil {
+		return err
+	}
+	if s.email != nil {
+		loginLink := strings.TrimRight(s.cfg.FrontendURL, "/") + "/login"
+		if err := s.email.sendWelcome(user.Email, user.FullName, loginLink); err != nil {
+			logEmailStatus("WELCOME", user.Email, err)
+		} else {
+			logEmailStatus("WELCOME", user.Email, nil)
+		}
+	}
+	return nil
+}
+
+func (s *authService) ResendVerificationEmail(req dto.ResendVerificationEmailRequest) error {
+	user, err := s.userRepo.GetByEmail(strings.ToLower(strings.TrimSpace(req.Email)))
+	if err != nil || user == nil || user.EmailVerifiedAt != nil {
+		return nil
+	}
+	err = s.sendVerificationEmail(user)
+	logEmailStatus("VERIFICATION RESEND", user.Email, err)
+	return err
+}
+
+func logEmailStatus(emailType, recipient string, err error) {
+	if err != nil {
+		log.Printf("[EMAIL][%s][FAILED] recipient=%s error=%v", emailType, recipient, err)
+		return
+	}
+	log.Printf("[EMAIL][%s][SENT] recipient=%s", emailType, recipient)
+}
+
+func (s *authService) sendVerificationEmail(user *model.User) error {
+	code, err := generateVerificationCode()
+	if err != nil {
+		return err
+	}
+	expiresAt := time.Now().Add(15 * time.Minute)
+	if err := s.userRepo.SetEmailVerification(user.ID, hashVerificationCode(code), expiresAt); err != nil {
+		return err
+	}
+	if s.email == nil {
+		return nil
+	}
+	return s.email.sendVerification(user.Email, user.FullName, code)
+}
+
+func generateVerificationCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()+100000), nil
+}
+
+func hashVerificationCode(code string) string {
+	hash := sha256.Sum256([]byte(code))
+	return hex.EncodeToString(hash[:])
 }
 
 func normalizeSecurityAnswer(answer string) string {
@@ -419,4 +528,82 @@ func (s *authService) limitActiveRefreshTokens(userID uuid.UUID, keepLatest int)
 	}
 
 	return s.userRepo.DeleteOldestRefreshTokensByUser(userID, keepLatest)
+}
+
+type emailSender struct{ cfg *config.Config }
+
+func newEmailSender(cfg *config.Config) *emailSender { return &emailSender{cfg: cfg} }
+
+func (s *emailSender) sendWelcome(to, name, loginLink string) error {
+	message, err := buildWelcomeEmail(WelcomeData{RecipientName: name, LoginLink: loginLink})
+	if err != nil {
+		return err
+	}
+	return s.send(to, message)
+}
+
+func (s *emailSender) sendVerification(to, name, code string) error {
+	message, err := buildVerificationEmail(VerificationData{RecipientName: name, Code: code})
+	if err != nil {
+		return err
+	}
+	return s.send(to, message)
+}
+
+func (s *emailSender) sendPasswordReset(to, name, resetLink string) error {
+	message, err := buildPasswordResetEmail(PasswordResetData{RecipientName: name, ResetLink: resetLink})
+	if err != nil {
+		return err
+	}
+	return s.send(to, message)
+}
+
+func (s *emailSender) sendPasswordChanged(to, name string) error {
+	message, err := buildPasswordChangedEmail(PasswordChangedData{RecipientName: name})
+	if err != nil {
+		return err
+	}
+	return s.send(to, message)
+}
+
+func (s *emailSender) send(to string, message emailMessage) error {
+	if strings.TrimSpace(s.cfg.SMTPHost) == "" || strings.TrimSpace(s.cfg.SMTPUsername) == "" || strings.TrimSpace(s.cfg.SMTPPassword) == "" || strings.TrimSpace(s.cfg.SMTPFrom) == "" {
+		return fmt.Errorf("SMTP email is not configured")
+	}
+	port := s.cfg.SMTPPort
+	if port == "" {
+		port = "587"
+	}
+	address := s.cfg.SMTPHost + ":" + port
+	headers := "From: " + s.cfg.SMTPFrom + "\r\n" + "To: " + to + "\r\n" + "Subject: " + message.subject + "\r\n" + "MIME-Version: 1.0\r\n" + "Content-Type: text/html; charset=UTF-8\r\n\r\n"
+
+	if port == "587" {
+		conn, err := smtp.Dial(address)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		if err := conn.StartTLS(&tls.Config{ServerName: s.cfg.SMTPHost}); err != nil {
+			return err
+		}
+		if err := conn.Auth(smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPHost)); err != nil {
+			return err
+		}
+		if err := conn.Mail(s.cfg.SMTPFrom); err != nil {
+			return err
+		}
+		if err := conn.Rcpt(to); err != nil {
+			return err
+		}
+		writer, err := conn.Data()
+		if err != nil {
+			return err
+		}
+		if _, err = writer.Write([]byte(headers + message.body)); err != nil {
+			_ = writer.Close()
+			return err
+		}
+		return writer.Close()
+	}
+	return smtp.SendMail(address, smtp.PlainAuth("", s.cfg.SMTPUsername, s.cfg.SMTPPassword, s.cfg.SMTPHost), s.cfg.SMTPFrom, []string{to}, []byte(headers+message.body))
 }
