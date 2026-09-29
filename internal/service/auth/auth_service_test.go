@@ -3,6 +3,7 @@ package authservice
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"nalakarsa/internal/config"
 	"nalakarsa/internal/dto"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 )
+
 type mockUserRepository struct {
 	users         map[string]*model.User
 	refreshTokens map[string]*model.RefreshToken
@@ -46,6 +48,30 @@ func (m *mockUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (m *mockUserRepository) SetEmailVerification(userID uuid.UUID, codeHash string, expiresAt time.Time) error {
+	for _, u := range m.users {
+		if u.ID == userID {
+			u.EmailVerificationCodeHash = codeHash
+			u.EmailVerificationExpiresAt = &expiresAt
+			return nil
+		}
+	}
+	return errors.New("user not found")
+}
+
+func (m *mockUserRepository) MarkEmailVerified(userID uuid.UUID) error {
+	for _, u := range m.users {
+		if u.ID == userID {
+			now := time.Now()
+			u.EmailVerifiedAt = &now
+			u.EmailVerificationCodeHash = ""
+			u.EmailVerificationExpiresAt = nil
+			return nil
+		}
+	}
+	return errors.New("user not found")
 }
 
 func (m *mockUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, error) {

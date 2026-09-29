@@ -15,6 +15,8 @@ type UserRepository interface {
 	Create(u *model.User) error
 	GetByEmail(email string) (*model.User, error)
 	GetByID(id uuid.UUID) (*model.User, error)
+	SetEmailVerification(userID uuid.UUID, codeHash string, expiresAt time.Time) error
+	MarkEmailVerified(userID uuid.UUID) error
 	UpdateProfile(u *model.User) error
 	UpdateAvatar(userID uuid.UUID, avatarURL string) error
 	IncrementViewCount(userID uuid.UUID) error
@@ -76,6 +78,22 @@ func (r *pgUserRepository) GetByID(id uuid.UUID) (*model.User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *pgUserRepository) SetEmailVerification(userID uuid.UUID, codeHash string, expiresAt time.Time) error {
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"email_verification_code_hash":  codeHash,
+		"email_verification_expires_at": expiresAt,
+	}).Error
+}
+
+func (r *pgUserRepository) MarkEmailVerified(userID uuid.UUID) error {
+	now := time.Now()
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"email_verified_at":             now,
+		"email_verification_code_hash":  "",
+		"email_verification_expires_at": nil,
+	}).Error
 }
 
 func (r *pgUserRepository) GetByIDOrIdentifier(identifier string) (*model.User, error) {

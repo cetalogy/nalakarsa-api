@@ -63,3 +63,12 @@ type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=6,max=72"`
 }
+
+type VerifyEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6,numeric"`
+}
+
+type ResendVerificationEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}

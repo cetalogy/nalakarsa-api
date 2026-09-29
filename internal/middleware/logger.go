@@ -79,6 +79,14 @@ func resolveTransactionName(method, path string) string {
 		return "[USER REGISTER]"
 	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/refresh"):
 		return "[REFRESH TOKEN]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/forgot-password"):
+		return "[PASSWORD RESET REQUEST]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/reset-password"):
+		return "[PASSWORD RESET]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/verify-email"):
+		return "[EMAIL VERIFY]"
+	case method == "POST" && strings.HasPrefix(cleanPath, "/api/v1/auth/resend-verification-email"):
+		return "[EMAIL VERIFY RESEND]"
 	case method == "GET" && strings.HasPrefix(cleanPath, "/api/v1/auth/me"):
 		return "[GET CURRENT USER]"
 	case method == "POST" && strings.Contains(cleanPath, "/collaboration"):
@@ -121,7 +129,7 @@ func resolveTransactionName(method, path string) string {
 		return "[HEALTH CHECK]"
 
 	default:
-		return fmt.Sprintf("[%s]", method)
+		return "[REQUEST]"
 	}
 }
 

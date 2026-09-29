@@ -169,6 +169,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_field_name ON knowledge_fields (name)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question VARCHAR(30) NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_code_hash VARCHAR(64) NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires_at TIMESTAMPTZ`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_path TEXT`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name VARCHAR(255)`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_mime_type VARCHAR(100)`,
