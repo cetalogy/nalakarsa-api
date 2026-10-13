@@ -2,6 +2,7 @@ package seed
 
 import (
 	"log"
+	"time"
 
 	"nalakarsa/internal/common/constant"
 	"nalakarsa/internal/model"
@@ -17,7 +18,14 @@ func SeedData(db *gorm.DB) error {
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageHero{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.HomepageTestimonial{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ProjectApplication{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ProjectMilestone{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ProjectMember{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Project{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Notification{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Message{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.ConversationMember{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Conversation{})
+	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Connection{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.DiscussionReply{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.Discussion{})
 	db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.RefreshToken{})
@@ -146,12 +154,41 @@ func SeedData(db *gorm.DB) error {
 		Description:   "Kami merancang sensor kelembapan tanah berbasis LoRaWAN. Kami mencari Praktisi Agribisnis yang memiliki lahan perkebunan untuk melakukan uji coba lapangan nyata dan validasi pasar.",
 		Category:      "Research",
 		Needs:         constant.RolePraktisi,
-		Status:        constant.ProjectStatusOpen,
+		Status:        constant.ProjectStatusActive,
+		Progress:      45,
 		FundingStatus: "Self-funded",
 		Location:      "Bogor",
+		Deadline:      timePtr(time.Now().AddDate(0, 2, 0)),
 	}
 
 	if err := db.Create(proj).Error; err != nil {
+		return err
+	}
+	milestones := []model.ProjectMilestone{
+		{
+			ProjectID:  proj.ID,
+			Title:      "Validasi kebutuhan lahan uji",
+			DueAt:      timePtr(time.Now().AddDate(0, 0, 14)),
+			Status:     constant.MilestoneStatusCompleted,
+			AssigneeID: &praktisiUser.ID,
+		},
+		{
+			ProjectID:  proj.ID,
+			Title:      "Pemasangan sensor dan pengumpulan data awal",
+			DueAt:      timePtr(time.Now().AddDate(0, 0, 30)),
+			Status:     constant.MilestoneStatusInProgress,
+			AssigneeID: &praktisiUser.ID,
+		},
+	}
+	if err := db.Create(&milestones).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&model.ProjectMember{
+		ProjectID: proj.ID,
+		UserID:    praktisiUser.ID,
+		Role:      "Mitra Agribisnis",
+		Status:    constant.MemberStatusActive,
+	}).Error; err != nil {
 		return err
 	}
 	app := &model.ProjectApplication{
@@ -162,6 +199,44 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	if err := db.Create(app).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&model.Connection{
+		RequesterID: akademisiUser.ID,
+		AddresseeID: praktisiUser.ID,
+		Status:      constant.ConnectionStatusAccepted,
+	}).Error; err != nil {
+		return err
+	}
+	now := time.Now()
+	conversation := &model.Conversation{Type: constant.ConversationTypeDirect, LastMessageAt: &now}
+	if err := db.Create(conversation).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&[]model.ConversationMember{
+		{ConversationID: conversation.ID, UserID: akademisiUser.ID},
+		{ConversationID: conversation.ID, UserID: praktisiUser.ID},
+	}).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&model.Message{
+		ConversationID: conversation.ID,
+		SenderID:       praktisiUser.ID,
+		Body:           "Halo Pak Budi, saya siap membantu validasi lapangan untuk proyek ini.",
+		Status:         "sent",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&model.Notification{
+		UserID:       akademisiUser.ID,
+		ActorID:      &praktisiUser.ID,
+		Type:         constant.TypeConnectionAccepted,
+		ResourceType: constant.ResourceConnection,
+		Payload:      "{}",
+		CreatedAt:    now,
+	}).Error; err != nil {
 		return err
 	}
 	hero := &model.HomepageHero{
@@ -227,4 +302,8 @@ func SeedData(db *gorm.DB) error {
 
 	log.Println("Mock data seeding successfully completed.")
 	return nil
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
 }

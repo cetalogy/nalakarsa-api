@@ -592,6 +592,96 @@ paths:
       responses:
         '201': { description: Expertise created or existing expertise returned }
         '400': { description: Invalid name }
+  /skills/search:
+    get:
+      tags: [Profile Skills]
+      summary: Search profile skills
+      description: Mencari skill yang tersedia untuk dipilih pada profile.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Skills returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SkillResponse'
+  /skills:
+    post:
+      tags: [Profile Skills]
+      summary: Create a skill catalog item
+      description: Menambahkan skill baru ke katalog. Nama yang sama tidak dibuat ulang.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSkillRequest'
+      responses:
+        '201': { description: Skill created or existing skill returned }
+        '400': { description: Invalid name }
+  /users/me/skills:
+    get:
+      tags: [Profile Skills]
+      summary: Get my profile skills
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: User skills returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SkillResponse'
+    post:
+      tags: [Profile Skills]
+      summary: Add a skill to my profile
+      description: Gunakan skill_id untuk skill yang sudah tersedia atau name untuk membuat skill baru sekaligus menghubungkannya ke profile.
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddUserSkillRequest'
+      responses:
+        '201': { description: Skill added to profile }
+        '400': { description: Invalid skill or payload }
+  /users/me/skills/{skill_id}:
+    delete:
+      tags: [Profile Skills]
+      summary: Remove a skill from my profile
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: skill_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Skill removed from profile }
+        '400': { description: Invalid skill ID or skill is not assigned }
+  /skills/users/{user_id}:
+    get:
+      tags: [Profile Skills]
+      summary: Get skills on a public profile
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: User skills returned }
+        '400': { description: Invalid user ID }
   /knowledge:
     post:
       tags: [Reference]
@@ -1207,6 +1297,26 @@ components:
       in: query
       schema: { type: string }
   schemas:
+    SkillResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Machine Learning }
+    CreateSkillRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: Quantum Computing
+    AddUserSkillRequest:
+      type: object
+      description: Isi salah satu, skill_id atau name.
+      properties:
+        skill_id: { type: string, format: uuid }
+        name: { type: string, example: Quantum Computing }
     CreateReferenceRequest:
       type: object
       required: [name]

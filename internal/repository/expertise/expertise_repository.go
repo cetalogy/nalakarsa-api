@@ -1,6 +1,7 @@
 package expertiserepository
 
 import (
+	"errors"
 	"strings"
 
 	"nalakarsa/internal/model"
@@ -15,10 +16,15 @@ type ExpertiseRepository interface {
 }
 
 func (r *expertiseRepository) Create(item *model.Expertise) (*model.Expertise, error) {
+	var existing model.Expertise
+	if err := r.db.Where("LOWER(name) = LOWER(?)", item.Name).First(&existing).Error; err == nil {
+		return &existing, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(item).Error; err != nil {
 		return nil, err
 	}
-	var existing model.Expertise
 	if err := r.db.Where("name = ?", item.Name).First(&existing).Error; err != nil {
 		return nil, err
 	}

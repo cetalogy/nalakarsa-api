@@ -76,6 +76,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			&model.Institution{},
 			&model.Organization{},
 			&model.Expertise{},
+			&model.Skill{},
+			&model.UserSkill{},
 			&model.Industry{},
 			&model.KnowledgeField{},
 

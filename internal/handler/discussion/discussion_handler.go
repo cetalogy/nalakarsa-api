@@ -23,7 +23,10 @@ func getCurrentUserID(c *gin.Context) *uuid.UUID {
 	if !exists {
 		return nil
 	}
-	uid := userIDInterface.(uuid.UUID)
+	uid, ok := userIDInterface.(uuid.UUID)
+	if !ok {
+		return nil
+	}
 	return &uid
 }
 

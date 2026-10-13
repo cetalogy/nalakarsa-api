@@ -38,10 +38,12 @@ func (r *UpdateDiscussionRequest) GetDescription() string {
 }
 
 type DiscussionCreator struct {
-	ID        uuid.UUID `json:"id"`
-	FullName  string    `json:"fullName"`
-	Role      string    `json:"role"`
-	AvatarURL string    `json:"avatar_url"`
+	ID          uuid.UUID `json:"id"`
+	FullName    string    `json:"fullName"`
+	PrefixTitle string    `json:"prefixTitle"`
+	SuffixTitle string    `json:"suffixTitle"`
+	Role        string    `json:"role"`
+	AvatarURL   string    `json:"avatar_url"`
 }
 
 type DiscussionReplyResponse struct {
@@ -75,6 +77,8 @@ type DiscussionResponse struct {
 	CreatedAt          time.Time  `json:"createdAt"`
 	AuthorID           uuid.UUID  `json:"author_id"`
 	Author             string     `json:"author"`
+	PrefixTitle        string     `json:"prefixTitle"`
+	SuffixTitle        string     `json:"suffixTitle"`
 	Role               string     `json:"role"`
 	AvatarURL          string     `json:"avatar_url"`
 	SourceDiscussionID *uuid.UUID `json:"sourceDiscussionId"`
@@ -96,6 +100,8 @@ type DiscussionDetailResponse struct {
 	CreatedAt          time.Time                 `json:"createdAt"`
 	AuthorID           uuid.UUID                 `json:"author_id"`
 	Author             string                    `json:"author"`
+	PrefixTitle        string                    `json:"prefixTitle"`
+	SuffixTitle        string                    `json:"suffixTitle"`
 	Role               string                    `json:"role"`
 	AvatarURL          string                    `json:"avatar_url"`
 	SourceDiscussionID *uuid.UUID                `json:"sourceDiscussionId"`
