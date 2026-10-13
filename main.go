@@ -21,6 +21,7 @@ import (
 	notificationhandler "nalakarsa/internal/handler/notification"
 	organizationhandler "nalakarsa/internal/handler/organization"
 	projecthandler "nalakarsa/internal/handler/project"
+	skillhandler "nalakarsa/internal/handler/skill"
 	userhandler "nalakarsa/internal/handler/user"
 	"nalakarsa/internal/middleware"
 	connectionrepository "nalakarsa/internal/repository/connection"
@@ -35,6 +36,7 @@ import (
 	notificationrepository "nalakarsa/internal/repository/notification"
 	organizationrepository "nalakarsa/internal/repository/organization"
 	projectrepository "nalakarsa/internal/repository/project"
+	skillrepository "nalakarsa/internal/repository/skill"
 	userrepository "nalakarsa/internal/repository/user"
 	authservice "nalakarsa/internal/service/auth"
 	connectionservice "nalakarsa/internal/service/connection"
@@ -50,6 +52,7 @@ import (
 	notificationservice "nalakarsa/internal/service/notification"
 	organizationservice "nalakarsa/internal/service/organization"
 	projectservice "nalakarsa/internal/service/project"
+	skillservice "nalakarsa/internal/service/skill"
 	userservice "nalakarsa/internal/service/user"
 	"nalakarsa/internal/utils"
 
@@ -68,6 +71,7 @@ import (
 	notificationroutes "nalakarsa/internal/routes/notification"
 	organizationroutes "nalakarsa/internal/routes/organization"
 	projectroutes "nalakarsa/internal/routes/project"
+	skillroutes "nalakarsa/internal/routes/skill"
 	userroutes "nalakarsa/internal/routes/user"
 	"nalakarsa/seed"
 
@@ -84,6 +88,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Critical Error: Database initialization failed: %v", err)
 	}
+	if err := seed.SeedExpertise(db); err != nil {
+		log.Fatalf("Critical Error: Expertise seed failed: %v", err)
+	}
+	if cfg.DBAutoMigrate {
+		if err := seed.SeedSkills(db); err != nil {
+			log.Fatalf("Critical Error: Skill seed failed: %v", err)
+		}
+	}
 	if *seedFlag {
 		if err := seed.SeedData(db); err != nil {
 			log.Fatalf("Critical Error: Seeding database failed: %v", err)
@@ -95,6 +107,7 @@ func main() {
 	userRepo := userrepository.NewUserRepository(db)
 	discRepo := discussionrepository.NewDiscussionRepository(db)
 	expertiseRepo := expertiserepository.NewExpertiseRepository(db)
+	skillRepo := skillrepository.NewSkillRepository(db)
 	connRepo := connectionrepository.NewConnectionRepository(db)
 	projRepo := projectrepository.NewProjectRepository(db)
 	convRepo := conversationrepository.NewConversationRepository(db)
@@ -109,6 +122,7 @@ func main() {
 	userService := userservice.NewUserService(userRepo, connRepo, projRepo, notifRepo)
 	discService := discussionservice.NewDiscussionService(discRepo, userRepo)
 	expertiseService := expertiseservice.NewExpertiseService(expertiseRepo)
+	skillService := skillservice.NewSkillService(skillRepo)
 	connService := connectionservice.NewConnectionService(connRepo, userRepo)
 	projService := projectservice.NewProjectService(projRepo, userRepo, discRepo, notifRepo)
 	convService := conversationservice.NewConversationService(convRepo, userRepo, cfg)
@@ -124,6 +138,7 @@ func main() {
 	userHandler := userhandler.NewUserHandler(userService, cfg)
 	discHandler := discussionhandler.NewDiscussionHandler(discService)
 	expertiseHandler := expertisehandler.NewExpertiseHandler(expertiseService)
+	skillHandler := skillhandler.NewSkillHandler(skillService)
 	connHandler := connectionhandler.NewConnectionHandler(connService)
 	projHandler := projecthandler.NewProjectHandler(projService)
 	convHandler := conversationhandler.NewConversationHandler(convService)
@@ -144,6 +159,7 @@ func main() {
 	userroutes.RegisterRoutes(v1, protected, userHandler, connHandler.GetSuggestions)
 	discussionroutes.RegisterRoutes(v1, protected, discHandler)
 	expertiseroutes.RegisterRoutes(v1, expertiseHandler)
+	skillroutes.RegisterRoutes(v1, protected, skillHandler)
 	connectionroutes.RegisterRoutes(protected, connHandler)
 	projectroutes.RegisterRoutes(v1, protected, projHandler)
 	institutionroutes.RegisterRoutes(v1, institutionHandler)

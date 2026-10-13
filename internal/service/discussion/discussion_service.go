@@ -2,6 +2,7 @@ package discussionservice
 
 import (
 	"errors"
+	"strings"
 
 	"nalakarsa/internal/dto"
 	"nalakarsa/internal/model"
@@ -83,15 +84,19 @@ func (s *discussionService) GetByID(id uuid.UUID, currentUserID *uuid.UUID) (*dt
 		Time:               disc.CreatedAt,
 		CreatedAt:          disc.CreatedAt,
 		AuthorID:           disc.User.ID,
-		Author:             disc.User.FullName,
+		Author:             formatAuthorName(disc.User.PrefixTitle, disc.User.FullName, disc.User.SuffixTitle),
+		PrefixTitle:        disc.User.PrefixTitle,
+		SuffixTitle:        disc.User.SuffixTitle,
 		Role:               disc.User.Role,
 		AvatarURL:          disc.User.AvatarURL,
 		SourceDiscussionID: disc.SourceDiscussionID,
 		Creator: dto.DiscussionCreator{
-			ID:        disc.User.ID,
-			FullName:  disc.User.FullName,
-			Role:      disc.User.Role,
-			AvatarURL: disc.User.AvatarURL,
+			ID:          disc.User.ID,
+			FullName:    formatAuthorName(disc.User.PrefixTitle, disc.User.FullName, disc.User.SuffixTitle),
+			PrefixTitle: disc.User.PrefixTitle,
+			SuffixTitle: disc.User.SuffixTitle,
+			Role:        disc.User.Role,
+			AvatarURL:   disc.User.AvatarURL,
 		},
 		RepliesList: s.toDiscussionReplyResponses(disc.Replies),
 	}, nil
@@ -163,7 +168,9 @@ func (s *discussionService) List(search, category, role, sort string, page, limi
 			HasUpvoted:         hasUpvoted,
 			Time:               d.CreatedAt,
 			AuthorID:           d.User.ID,
-			Author:             d.User.FullName,
+			Author:             formatAuthorName(d.User.PrefixTitle, d.User.FullName, d.User.SuffixTitle),
+			PrefixTitle:        d.User.PrefixTitle,
+			SuffixTitle:        d.User.SuffixTitle,
 			Role:               d.User.Role,
 			AvatarURL:          d.User.AvatarURL,
 			SourceDiscussionID: d.SourceDiscussionID,
@@ -243,10 +250,12 @@ func (s *discussionService) AddReply(userID uuid.UUID, discussionID uuid.UUID, r
 		ParentID:  reply.ParentID,
 		CreatedAt: reply.CreatedAt,
 		Creator: dto.DiscussionCreator{
-			ID:        u.ID,
-			FullName:  u.FullName,
-			Role:      u.Role,
-			AvatarURL: u.AvatarURL,
+			ID:          u.ID,
+			FullName:    formatAuthorName(u.PrefixTitle, u.FullName, u.SuffixTitle),
+			PrefixTitle: u.PrefixTitle,
+			SuffixTitle: u.SuffixTitle,
+			Role:        u.Role,
+			AvatarURL:   u.AvatarURL,
 		},
 	}, nil
 }
@@ -277,12 +286,27 @@ func (s *discussionService) toDiscussionReplyResponse(r model.DiscussionReply) d
 		ParentID:  r.ParentID,
 		CreatedAt: r.CreatedAt,
 		Creator: dto.DiscussionCreator{
-			ID:        r.User.ID,
-			FullName:  r.User.FullName,
-			Role:      r.User.Role,
-			AvatarURL: r.User.AvatarURL,
+			ID:          r.User.ID,
+			FullName:    formatAuthorName(r.User.PrefixTitle, r.User.FullName, r.User.SuffixTitle),
+			PrefixTitle: r.User.PrefixTitle,
+			SuffixTitle: r.User.SuffixTitle,
+			Role:        r.User.Role,
+			AvatarURL:   r.User.AvatarURL,
 		},
 	}
+}
+
+func formatAuthorName(prefix, fullName, suffix string) string {
+	name := strings.TrimSpace(fullName)
+	prefix = strings.TrimSpace(prefix)
+	suffix = strings.TrimSpace(suffix)
+	if prefix != "" && !strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix)) {
+		name = prefix + " " + name
+	}
+	if suffix != "" && !strings.HasSuffix(strings.ToLower(name), strings.ToLower(suffix)) {
+		name += ", " + suffix
+	}
+	return name
 }
 
 func (s *discussionService) toDiscussionReplyResponses(replies []model.DiscussionReply) []dto.DiscussionReplyResponse {
